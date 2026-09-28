@@ -50,15 +50,14 @@ const PURE_DEFINITIONS = {
 };
 
 const PURE_STORAGE_KEY = "pures";
-
 let pures = loadPureBalances();
 
 function loadPureBalances() {
-  let saved;
+  let saved = null;
 
   try {
     saved = JSON.parse(
-      localStorage.getItem(PURE_STORAGE_KEY)
+      localStorage.getItem(PURE_STORAGE_KEY) || "null"
     );
   } catch (error) {
     saved = null;
@@ -67,11 +66,10 @@ function loadPureBalances() {
   const balances = {};
 
   Object.keys(PURE_DEFINITIONS).forEach(id => {
-    const value = saved && Number(saved[id]);
-
+    const value = saved ? Number(saved[id]) : 0;
     balances[id] =
       Number.isFinite(value) && value > 0
-        ? value
+        ? Math.floor(value)
         : 0;
   });
 
@@ -94,9 +92,7 @@ function normalizePureName(name) {
 }
 
 function getPureId(item) {
-  if (!item) {
-    return null;
-  }
+  if (!item) return null;
 
   if (
     item.pureId &&
@@ -105,17 +101,12 @@ function getPureId(item) {
     return item.pureId;
   }
 
-  const normalized =
-    normalizePureName(item.name);
+  const normalized = normalizePureName(item.name);
 
-  for (const [id, pure] of Object.entries(
-    PURE_DEFINITIONS
-  )) {
+  for (const [id, pure] of Object.entries(PURE_DEFINITIONS)) {
     if (
       pure.aliases.some(
-        alias =>
-          normalizePureName(alias) ===
-          normalized
+        alias => normalizePureName(alias) === normalized
       )
     ) {
       return id;
@@ -134,90 +125,54 @@ function getPureDefinition(id) {
 }
 
 function formatPureQuantity(id, amount) {
-  if (id === "refined") {
-    return Number(amount || 0)
-      .toFixed(2)
-      .replace(/\.00$/, "");
-  }
-
-  return Math.floor(
-    Number(amount || 0)
-  ).toString();
+  return Math.floor(Number(amount) || 0).toString();
 }
 
 function getPureUnitValue(id) {
-  const pure =
-    getPureDefinition(id);
-
-  return pure
-    ? pure.coinValue
-    : 0;
+  const pure = getPureDefinition(id);
+  return pure ? pure.coinValue : 0;
 }
 
 function renderPureBalances() {
-  const container =
-    document.getElementById(
-      "pure-balances"
-    );
-
-  if (!container) {
-    return;
-  }
+  const container = document.getElementById("pure-balances");
+  if (!container) return;
 
   container.innerHTML = "";
 
-  Object.values(PURE_DEFINITIONS)
-    .forEach(pure => {
+  Object.values(PURE_DEFINITIONS).forEach(pure => {
+    const card = document.createElement("div");
+    card.className = "pure-balance-card";
 
-      const card =
-        document.createElement("div");
+    const amount = pures[pure.id] || 0;
 
-      card.className =
-        "pure-balance-card";
+    card.innerHTML = `
+      <img
+        src="${pure.image}"
+        alt="${pure.name}"
+        class="pure-balance-icon"
+      >
 
-      const amount =
-        pures[pure.id] || 0;
+      <div class="pure-balance-info">
+        <span>${pure.shortName}</span>
+        <strong>${formatPureQuantity(pure.id, amount)}</strong>
+      </div>
 
-      card.innerHTML = `
-        <img
-          src="${pure.image}"
-          alt="${pure.name}"
-          class="pure-balance-icon"
-        >
+      <button
+        class="theme-btn pure-takeout-btn"
+        type="button"
+        ${amount <= 0 ? "disabled" : ""}
+      >
+        Take Out
+      </button>
+    `;
 
-        <div class="pure-balance-info">
-          <span>${pure.shortName}</span>
-          <strong>
-            ${formatPureQuantity(
-              pure.id,
-              amount
-            )}
-          </strong>
-        </div>
+    const button = card.querySelector(".pure-takeout-btn");
+    if (button) {
+      button.onclick = () => withdrawPureToInventory(pure.id);
+    }
 
-        <button
-          class="theme-btn pure-takeout-btn"
-          type="button"
-          ${amount <= 0 ? "disabled" : ""}
-        >
-          Take Out
-        </button>
-      `;
-
-      const button =
-        card.querySelector(
-          ".pure-takeout-btn"
-        );
-
-      if (button) {
-        button.onclick = () =>
-          withdrawPureToInventory(
-            pure.id
-          );
-      }
-
-      container.appendChild(card);
-    });
+    container.appendChild(card);
+  });
 }
 
 function updatePureBalances() {
@@ -226,36 +181,18 @@ function updatePureBalances() {
 }
 
 function addPureBalance(id, amount) {
-  if (!PURE_DEFINITIONS[id]) {
-    return;
-  }
+  if (!PURE_DEFINITIONS[id]) return;
 
-  const numericAmount =
-    Number(amount);
+  const numericAmount = Math.floor(Number(amount) || 0);
+  if (numericAmount <= 0) return;
 
-  if (
-    !Number.isFinite(numericAmount) ||
-    numericAmount <= 0
-  ) {
-    return;
-  }
-
-  pures[id] =
-    (Number(pures[id]) || 0) +
-    numericAmount;
-
+  pures[id] = (Number(pures[id]) || 0) + numericAmount;
   updatePureBalances();
 }
 
-function getWholePureAmountForItem(
-  item,
-  pureId
-) {
-  const pureValue =
-    getPureUnitValue(pureId);
-
-  const itemValue =
-    Number(item && item.price);
+function getWholePureAmountForItem(item, pureId) {
+  const pureValue = getPureUnitValue(pureId);
+  const itemValue = Number(item && item.price);
 
   if (
     !Number.isFinite(itemValue) ||
@@ -265,172 +202,82 @@ function getWholePureAmountForItem(
     return 0;
   }
 
-  const convertedValue =
-    itemValue * 0.75;
+  // 25% conversion cost: only 75% of the item's value is converted.
+  const convertedValue = itemValue * 0.75;
 
+  // Pure units are whole units. Any remainder is discarded.
   return Math.floor(
-    (convertedValue / pureValue) +
-    1e-9
+    convertedValue / pureValue + 1e-9
   );
 }
 
-function openPureConversion(
-  itemIndex
-) {
-  const item =
-    inventory[itemIndex];
+function openPureConversion(itemIndex) {
+  const item = inventory[itemIndex];
+  if (!item) return;
 
-  if (!item) {
+  const existingPureId = getPureId(item);
+
+  // A physical pure is simply moved into the pure balance.
+  if (existingPureId) {
+    convertPureItemToBalance(itemIndex, existingPureId);
     return;
   }
 
-  const pureId =
-    getPureId(item);
+  const modal = document.getElementById("pure-convert-modal");
+  const title = document.getElementById("pure-convert-title");
+  const details = document.getElementById("pure-convert-details");
+  const options = document.getElementById("pure-convert-options");
 
-  if (pureId) {
-    convertPureItemToBalance(
-      itemIndex,
-      pureId
-    );
-    return;
-  }
+  if (!modal || !title || !details || !options) return;
 
-  const modal =
-    document.getElementById(
-      "pure-convert-modal"
-    );
+  const itemValue = Number(item.price) || 0;
+  const convertedValue = itemValue * 0.75;
 
-  const title =
-    document.getElementById(
-      "pure-convert-title"
-    );
-
-  const details =
-    document.getElementById(
-      "pure-convert-details"
-    );
-
-  const options =
-    document.getElementById(
-      "pure-convert-options"
-    );
-
-  if (
-    !modal ||
-    !title ||
-    !details ||
-    !options
-  ) {
-    return;
-  }
-
-  const itemValue =
-    Number(item.price) || 0;
-
-  const convertedValue =
-    itemValue * 0.75;
-
-  title.textContent =
-    `Convert ${item.name}`;
-
+  title.textContent = `Convert ${item.name}`;
   details.textContent =
-    `${itemValue.toFixed(2)} coins → ` +
-    `${convertedValue.toFixed(2)} pure value ` +
-    `(25% conversion cost)`;
+    `${itemValue.toFixed(2)} coins → ${convertedValue.toFixed(2)} pure value (25% conversion cost).`;
 
   options.innerHTML = "";
 
-  Object.values(PURE_DEFINITIONS)
-    .forEach(pure => {
+  Object.values(PURE_DEFINITIONS).forEach(pure => {
+    const amount = getWholePureAmountForItem(item, pure.id);
 
-      const amount =
-        getWholePureAmountForItem(
-          item,
-          pure.id
-        );
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "pure-convert-option";
+    option.disabled = amount <= 0;
 
-      const option =
-        document.createElement(
-          "button"
-        );
+    option.innerHTML = `
+      <img src="${pure.image}" alt="${pure.name}">
+      <span>
+        <strong>${pure.name}</strong>
+        <small>
+          Receive ${formatPureQuantity(pure.id, amount)} ${pure.shortName}
+        </small>
+      </span>
+    `;
 
-      option.type = "button";
-      option.className =
-        "pure-convert-option";
+    option.onclick = () => {
+      convertItemToPure(itemIndex, pure.id);
+    };
 
-      option.innerHTML = `
-        <img
-          src="${pure.image}"
-          alt="${pure.name}"
-        >
-
-        <span>
-          <strong>
-            ${pure.name}
-          </strong>
-
-          <small>
-            Receive
-            ${formatPureQuantity(
-              pure.id,
-              amount
-            )}
-            ${pure.shortName}
-          </small>
-        </span>
-      `;
-
-      option.disabled =
-        amount <= 0;
-
-      option.onclick = () => {
-        convertItemToPure(
-          itemIndex,
-          pure.id
-        );
-      };
-
-      options.appendChild(option);
-    });
+    options.appendChild(option);
+  });
 
   modal.style.display = "flex";
 }
 
 function closePureConversion() {
-  const modal =
-    document.getElementById(
-      "pure-convert-modal"
-    );
-
-  if (modal) {
-    modal.style.display =
-      "none";
-  }
+  const modal = document.getElementById("pure-convert-modal");
+  if (modal) modal.style.display = "none";
 }
 
-function convertPureItemToBalance(
-  itemIndex,
-  pureId
-) {
-  const item =
-    inventory[itemIndex];
+function convertPureItemToBalance(itemIndex, pureId) {
+  const item = inventory[itemIndex];
+  if (!item || !PURE_DEFINITIONS[pureId]) return;
 
-  if (
-    !item ||
-    !PURE_DEFINITIONS[pureId]
-  ) {
-    return;
-  }
-
-  inventory.splice(
-    itemIndex,
-    1
-  );
-
-  addPureBalance(
-    pureId,
-    1
-  );
+  inventory.splice(itemIndex, 1);
+  addPureBalance(pureId, 1);
 
   saveInventory();
   renderInventory();
@@ -442,122 +289,64 @@ function convertPureItemToBalance(
   );
 }
 
-function convertItemToPure(
-  itemIndex,
-  pureId
-) {
-  const item =
-    inventory[itemIndex];
+function convertItemToPure(itemIndex, pureId) {
+  const item = inventory[itemIndex];
+  if (!item || !PURE_DEFINITIONS[pureId]) return;
 
-  if (
-    !item ||
-    !PURE_DEFINITIONS[pureId]
-  ) {
-    return;
-  }
-
-  const amount =
-    getWholePureAmountForItem(
-      item,
-      pureId
-    );
+  const amount = getWholePureAmountForItem(item, pureId);
 
   if (amount <= 0) {
     alert(
       "This item is not worth enough to produce 1 whole unit of that pure after the 25% conversion cost."
     );
-
     closePureConversion();
     return;
   }
 
-  inventory.splice(
-    itemIndex,
-    1
-  );
-
-  addPureBalance(
-    pureId,
-    amount
-  );
+  inventory.splice(itemIndex, 1);
+  addPureBalance(pureId, amount);
 
   saveInventory();
   renderInventory();
   populateCoinflipDropdown();
   updateBackpackValue();
-
   closePureConversion();
 
   alert(
-    `Converted ${item.name} into ${formatPureQuantity(
-      pureId,
-      amount
-    )} ${PURE_DEFINITIONS[pureId].name}.`
+    `Converted ${item.name} into ${formatPureQuantity(pureId, amount)} ${PURE_DEFINITIONS[pureId].name}.`
   );
 }
 
-function withdrawPureToInventory(
-  pureId
-) {
-  const pure =
-    getPureDefinition(pureId);
+function withdrawPureToInventory(pureId) {
+  const pure = getPureDefinition(pureId);
+  if (!pure) return;
 
-  if (!pure) {
-    return;
-  }
+  const current = Math.floor(Number(pures[pureId]) || 0);
+  if (current <= 0) return;
 
-  const current =
-    Number(pures[pureId]) || 0;
+  const amountInput = prompt(
+    `How many ${pure.name} would you like to take out?\n\nAvailable: ${formatPureQuantity(pureId, current)}`
+  );
 
-  if (current <= 0) {
-    return;
-  }
+  if (amountInput === null) return;
 
-  const amountInput =
-    prompt(
-      `How many ${pure.name} would you like to take out?\n\nAvailable: ${formatPureQuantity(
-        pureId,
-        current
-      )}`
-    );
+  const amount = Math.floor(Number(amountInput) || 0);
 
-  if (amountInput === null) {
-    return;
-  }
-
-  const amount =
-    Math.floor(
-      Number(amountInput) || 0
-    );
-
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0
-  ) {
-    alert(
-      "Please enter a valid whole number."
-    );
+  if (amount <= 0) {
+    alert("Please enter a valid whole number.");
     return;
   }
 
   if (amount > current) {
     alert(
-      `You only have ${formatPureQuantity(
-        pureId,
-        current
-      )} ${pure.name}.`
+      `You only have ${formatPureQuantity(pureId, current)} ${pure.name}.`
     );
     return;
   }
 
-  pures[pureId] =
-    current - amount;
+  pures[pureId] = current - amount;
 
-  for (
-    let i = 0;
-    i < amount;
-    i++
-  ) {
+  for (let i = 0; i < amount; i++) {
     inventory.push({
       name: pure.name,
       rarity: "legendary",
@@ -570,7 +359,6 @@ function withdrawPureToInventory(
 
   savePureBalances();
   saveInventory();
-
   renderPureBalances();
   renderInventory();
   populateCoinflipDropdown();
@@ -620,16 +408,12 @@ document.addEventListener("DOMContentLoaded", () => {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  const pureCloseBtn =
-    document.getElementById("pure-convert-close");
-
-  if (pureCloseBtn) {
-    pureCloseBtn.onclick = closePureConversion;
+  const pureCloseButton = document.getElementById("pure-convert-close");
+  if (pureCloseButton) {
+    pureCloseButton.onclick = closePureConversion;
   }
 
-  const pureModal =
-    document.getElementById("pure-convert-modal");
-
+  const pureModal = document.getElementById("pure-convert-modal");
   if (pureModal) {
     pureModal.addEventListener("click", event => {
       if (event.target === pureModal) {
@@ -671,7 +455,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
   }
-
 function setRandomCaseNeonColor() {
   const display = document.getElementById("case-select-display");
 
@@ -847,8 +630,7 @@ function saveInventory() {
 
 function renderInventory() {
 
-  const container =
-    document.getElementById("inventory");
+  const container = document.getElementById("inventory");
 
   if (!container) {
     return;
@@ -858,67 +640,46 @@ function renderInventory() {
 
   inventory.forEach((item, index) => {
 
-    const div =
-      document.createElement("div");
-
-    const rarity =
-      String(
-        item.rarity || "common"
-      ).toLowerCase();
+    const div = document.createElement("div");
 
     div.className =
-      `inv-item ${rarity}`;
+      `inv-item ${String(item.rarity || "common").toLowerCase()}`;
 
-    const pureId =
-      getPureId(item);
-
-    const convertButtonText =
-      pureId
-        ? "Convert"
-        : "Convert to Pure";
+    const pureId = getPureId(item);
 
     div.innerHTML = `
       <img src="${item.image}">
       <p>${item.name}</p>
-      <small>
-        ${Number(item.price || 0).toFixed(2)}
-        coins
-      </small>
+      <small>${Number(item.price || 0).toFixed(2)} coins</small>
 
       <div class="inventory-action-row">
-
-        <button
-          class="sell-btn theme-btn"
-          type="button"
-        >
+        <button class="sell-btn theme-btn" type="button">
           Scrap
         </button>
 
-        <button
-          class="convert-btn theme-btn"
-          type="button"
-        >
-          ${convertButtonText}
+        <button class="convert-btn theme-btn" type="button">
+          Convert
         </button>
-
       </div>
     `;
 
-    div.querySelector(
-      ".sell-btn"
-    ).onclick = () => {
+    div.querySelector(".sell-btn").onclick = () => {
       sellItem(index);
     };
 
-    div.querySelector(
-      ".convert-btn"
-    ).onclick = () => {
+    div.querySelector(".convert-btn").onclick = () => {
       openPureConversion(index);
     };
+
+    // Keep the pure ID available on physical pure inventory items.
+    if (pureId) {
+      div.dataset.pureId = pureId;
+    }
 
     container.appendChild(div);
   });
 }
+
 
 
 // ===================== SELL ITEM =====================
@@ -1115,9 +876,21 @@ function populateCoinflipDropdown() {
     return;
   }
 
+  const tradableInventory = inventory.filter(item => !isPureItem(item));
+
+  if (tradableInventory.length === 0) {
+    select.innerHTML = `<option>No regular items available</option>`;
+    select.disabled = true;
+    return;
+  }
+
   select.disabled = false;
 
   inventory.forEach((item, index) => {
+
+    if (isPureItem(item)) {
+      return;
+    }
 
     const option =
       document.createElement("option");
@@ -1411,4 +1184,929 @@ function getRandomItem(items) {
   }
 
   return items[0];
+}
+
+
+// ===================== SPINNER =====================
+
+function spinToItem(winningItem) {
+
+  const strip =
+    document.getElementById(
+      "spinner-strip"
+    );
+
+  if (!strip) {
+    isSpinning = false;
+    return;
+  }
+
+  strip.innerHTML = "";
+
+  const slots = 50;
+
+  const winnerIndex = 38;
+
+  for (let i = 0; i < slots; i++) {
+
+    let item =
+      currentCase.items[
+        Math.floor(
+          Math.random() *
+          currentCase.items.length
+        )
+      ];
+
+    if (i === winnerIndex) {
+      item = winningItem;
+    }
+
+    const div =
+      document.createElement("div");
+
+    div.className =
+      `spinner-item ${item.rarity.toLowerCase()}`;
+
+    div.innerHTML =
+      `<img src="${item.image}">`;
+
+    div.style.filter =
+      "grayscale(100%)";
+
+    strip.appendChild(div);
+  }
+
+  strip.offsetHeight;
+
+  const itemWidth =
+    strip.children[0].offsetWidth + 30;
+
+  const containerWidth =
+    document.getElementById(
+      "spinner-container"
+    ).offsetWidth;
+
+  const randomSpot =
+    (Math.random() + Math.random()) / 2;
+
+  const edgePadding =
+    itemWidth * 0.1;
+
+  const randomOffsetInsideItem =
+    (randomSpot - 0.5) *
+    (itemWidth - edgePadding);
+
+  const jitter =
+    (Math.random() - 0.5) * 3;
+
+  const offset = -(
+    winnerIndex * itemWidth
+    - containerWidth / 2
+    + itemWidth / 2
+    + randomOffsetInsideItem
+    + jitter
+  );
+
+  strip.style.transition = "none";
+
+  strip.style.transform =
+    "translateX(0)";
+
+  strip.offsetHeight;
+
+  strip.style.transition =
+    "transform 3.2s cubic-bezier(.25,.85,.35,1)";
+
+  strip.style.transform =
+    `translateX(${offset}px)`;
+
+  const interval =
+    setInterval(() => {
+
+      const children =
+        Array.from(strip.children);
+
+      const centerX =
+        strip.parentElement.getBoundingClientRect()
+          .left +
+        containerWidth / 2;
+
+      children.forEach(child => {
+
+        const rect =
+          child.getBoundingClientRect();
+
+        const dist =
+          Math.abs(
+            rect.left +
+            rect.width / 2 -
+            centerX
+          );
+
+        const factor =
+          Math.max(
+            0,
+            1 -
+            dist /
+            (containerWidth / 2)
+          );
+
+        child.style.filter =
+          `grayscale(${(1 - factor) * 77}%) brightness(${0.6 + 0.4 * factor})`;
+      });
+
+    }, 30);
+
+  setTimeout(() => {
+
+    clearInterval(interval);
+
+    const children =
+      Array.from(strip.children);
+
+    children.forEach((child, i) => {
+
+      if (i === winnerIndex) {
+
+        child.style.filter =
+          "grayscale(0%) brightness(1)";
+
+        animateWinner(child);
+
+      } else {
+
+        child.style.filter =
+          "grayscale(35%) brightness(0.6)";
+      }
+    });
+
+    showWinner(winningItem);
+
+    setTimeout(() => {
+
+      isSpinning = false;
+
+    }, 200);
+
+  }, 3200);
+}
+
+
+// ===================== WIN ITEM ANIMATION =====================
+
+function animateWinner(element) {
+
+  let scale = 1;
+
+  let growing = true;
+
+  function frame() {
+
+    if (growing) {
+
+      scale += 0.005;
+
+      if (scale >= 1.2) {
+        growing = false;
+      }
+
+    } else {
+
+      scale -= 0.005;
+
+      if (scale <= 1) {
+        growing = true;
+      }
+    }
+
+    element.style.transform =
+      `scale(${scale})`;
+
+    requestAnimationFrame(frame);
+  }
+
+  frame();
+}
+
+
+// ===================== WINNER =====================
+
+function showWinner(item) {
+
+  const pureId = getPureId(item);
+
+  inventory.push(
+    pureId
+      ? { ...item, pureId }
+      : item
+  );
+
+  recentDrops.push(item);
+
+  if (recentDrops.length > 20) {
+    recentDrops.shift();
+  }
+
+  saveInventory();
+
+  renderInventory();
+
+  renderTopDrops();
+
+  populateCoinflipDropdown();
+
+  updateBackpackValue();
+
+  const winnerBox =
+    document.getElementById(
+      "winner-name"
+    );
+
+  if (winnerBox) {
+
+    winnerBox.textContent =
+      item.name;
+
+    winnerBox.className =
+      item.rarity.toLowerCase();
+  }
+}
+
+
+// ===================== ADMIN GIVE ITEMS =====================
+
+function adminGiveItem() {
+
+  const panel =
+    document.getElementById(
+      "admin-give-panel"
+    );
+
+  const itemsContainer =
+    document.getElementById(
+      "admin-give-items"
+    );
+
+  if (!panel || !itemsContainer) {
+    return;
+  }
+
+  // Password
+  if (!adminMode) {
+
+    const password =
+      prompt(
+        "Enter Trading passkey:"
+      );
+
+    if (password === null) {
+      return;
+    }
+
+    if (password !== ADMIN_PASSWORD) {
+
+      alert(
+        "Incorrect Trading Passkey."
+      );
+
+      return;
+    }
+
+    adminMode = true;
+
+    alert(
+      "Trading Mode Enabled."
+    );
+  }
+
+  panel.style.display = "block";
+
+  itemsContainer.innerHTML = "";
+
+  let allItems = [];
+
+  cases.forEach(c => {
+
+    c.items.forEach(item => {
+
+      allItems.push(item);
+
+    });
+  });
+
+  allItems.forEach(item => {
+
+    const div =
+      document.createElement("div");
+
+    div.className =
+      "admin-give-item";
+
+    div.innerHTML = `
+      <img src="${item.image}">
+
+      <div class="admin-give-info">
+
+        <span class="name">
+          ${item.name}
+        </span>
+
+        <span class="price">
+          ${item.price.toFixed(2)} coins
+        </span>
+
+      </div>
+
+      <button>
+        Trade
+      </button>
+    `;
+
+    div.querySelector("button").onclick =
+      () => {
+
+        if (coins < item.price) {
+
+          alert(
+            "Not enough coins."
+          );
+
+          return;
+        }
+
+        coins -= item.price;
+
+        updateCoins();
+
+        inventory.push({
+          ...item
+        });
+
+        saveInventory();
+
+        renderInventory();
+
+        populateCoinflipDropdown();
+
+        updateBackpackValue();
+
+        alert(
+          `Traded ${item.name} for ${item.price.toFixed(2)} coins`
+        );
+      };
+
+    itemsContainer.appendChild(div);
+  });
+
+  const closeButton =
+    document.getElementById(
+      "admin-give-close"
+    );
+
+  if (closeButton) {
+
+    closeButton.onclick = () => {
+
+      panel.style.display = "none";
+
+      adminMode = false;
+    };
+  }
+}
+
+
+/* =========================================================
+   UPGRADE SYSTEM
+========================================================= */
+
+let Upgrader = {
+
+  cases: [],
+
+  selectedWagers: [],
+
+  selectedTargets: [],
+
+  upgrading: false
+};
+
+
+/* =========================
+   KEY
+========================= */
+
+function getKey(item, index) {
+
+  return (
+    `${item.name}|${item.price}|${item.image}|${index}`
+  );
+}
+
+
+/* =========================
+   INIT
+========================= */
+
+window.addEventListener(
+  "load",
+  () => {
+
+    waitForCases(() => {
+
+      Upgrader.cases =
+        cases || [];
+
+      createLoadButtons();
+
+      renderWager();
+
+      renderTarget();
+
+      updateUI();
+
+    });
+  }
+);
+
+
+function waitForCases(cb) {
+
+  if (!cases || !cases.length) {
+
+    setTimeout(
+      () => waitForCases(cb),
+      150
+    );
+
+    return;
+  }
+
+  cb();
+}
+
+
+/* =========================
+   LOAD BUTTONS
+========================= */
+
+function createLoadButtons() {
+
+  const wagerParent =
+    document.querySelector(
+      "#wager-list"
+    )?.parentElement;
+
+  const targetParent =
+    document.querySelector(
+      "#target-list"
+    )?.parentElement;
+
+  if (
+    wagerParent &&
+    !document.getElementById(
+      "load-wager-btn"
+    )
+  ) {
+
+    const btn =
+      document.createElement("button");
+
+    btn.id =
+      "load-wager-btn";
+
+    btn.className =
+      "theme-btn";
+
+    btn.textContent =
+      "Load Wager Items";
+
+    btn.onclick =
+      renderWager;
+
+    wagerParent.prepend(btn);
+  }
+
+  if (
+    targetParent &&
+    !document.getElementById(
+      "load-target-btn"
+    )
+  ) {
+
+    const btn =
+      document.createElement("button");
+
+    btn.id =
+      "load-target-btn";
+
+    btn.className =
+      "theme-btn";
+
+    btn.textContent =
+      "Load Target Items";
+
+    btn.onclick =
+      renderTarget;
+
+    targetParent.prepend(btn);
+  }
+}
+
+
+/* =========================
+   WAGER RENDER
+========================= */
+
+function renderWager() {
+
+  const box =
+    document.getElementById(
+      "wager-list"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  box.innerHTML = "";
+
+  inventory.forEach(
+    (item, index) => {
+
+      if (isPureItem(item)) {
+        return;
+      }
+
+      const key =
+        getKey(item, index);
+
+      const selected =
+        Upgrader.selectedWagers.some(
+          i => i.key === key
+        );
+
+      const div =
+        document.createElement("div");
+
+      div.className =
+        `upgrade-item ${item.rarity} ${selected ? "selected" : ""}`;
+
+      div.innerHTML = `
+        <img src="${item.image}">
+        <small>${item.name}</small>
+        <small>${item.price.toFixed(2)} ⛃</small>
+      `;
+
+      div.onclick = () => {
+
+        const exists =
+          Upgrader.selectedWagers.find(
+            i => i.key === key
+          );
+
+        if (exists) {
+
+          Upgrader.selectedWagers =
+            Upgrader.selectedWagers.filter(
+              i => i.key !== key
+            );
+
+        } else {
+
+          Upgrader.selectedWagers.push({
+            item,
+            index,
+            key
+          });
+        }
+
+        renderWager();
+
+        updateUI();
+      };
+
+      box.appendChild(div);
+    }
+  );
+}
+
+
+/* =========================
+   TARGET RENDER
+========================= */
+
+function renderTarget() {
+
+  const box =
+    document.getElementById(
+      "target-list"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  box.innerHTML = "";
+
+  let allItems = [];
+
+  cases.forEach(c =>
+    c.items.forEach(i =>
+      allItems.push(i)
+    )
+  );
+
+  allItems.forEach(
+    (item, index) => {
+
+      if (isPureItem(item)) {
+        return;
+      }
+
+      const key =
+        getKey(item, index);
+
+      const selected =
+        Upgrader.selectedTargets.some(
+          i => i.key === key
+        );
+
+      const div =
+        document.createElement("div");
+
+      div.className =
+        `upgrade-item ${item.rarity} ${selected ? "selected" : ""}`;
+
+      div.innerHTML = `
+        <img src="${item.image}">
+        <small>${item.name}</small>
+        <small>${item.price.toFixed(2)} ⛃</small>
+      `;
+
+      div.onclick = () => {
+
+        const exists =
+          Upgrader.selectedTargets.find(
+            i => i.key === key
+          );
+
+        if (exists) {
+
+          Upgrader.selectedTargets =
+            Upgrader.selectedTargets.filter(
+              i => i.key !== key
+            );
+
+        } else {
+
+          Upgrader.selectedTargets.push({
+            item,
+            index,
+            key
+          });
+        }
+
+        renderTarget();
+
+        updateUI();
+      };
+
+      box.appendChild(div);
+    }
+  );
+}
+
+
+/* =========================
+   UI UPDATE
+========================= */
+
+function updateUI() {
+
+  const chanceBox =
+    document.getElementById(
+      "upgrade-chance"
+    );
+
+  const valueBox =
+    document.getElementById(
+      "upgrade-value"
+    );
+
+  const wager =
+    Upgrader.selectedWagers.reduce(
+      (a, b) =>
+        a + b.item.price,
+      0
+    );
+
+  const target =
+    Upgrader.selectedTargets.reduce(
+      (a, b) =>
+        a + b.item.price,
+      0
+    );
+
+  const chance =
+    target
+      ? Math.min(
+          100,
+          (wager * 0.95 / target) * 100
+        )
+      : 0;
+
+  if (chanceBox) {
+
+    chanceBox.textContent =
+      `Chance: ${chance.toFixed(2)}%`;
+  }
+
+  if (valueBox) {
+
+    valueBox.textContent =
+      `${wager.toFixed(2)} ⛃ → ${target.toFixed(2)} ⛃`;
+  }
+
+  if (
+    typeof updateUpgradeCircle ===
+    "function"
+  ) {
+
+    updateUpgradeCircle(chance);
+  }
+}
+
+
+/* =========================
+   UPGRADE BUTTON
+========================= */
+
+const upgradeButton =
+  document.getElementById(
+    "upgrade-btn"
+  );
+
+if (upgradeButton) {
+
+  upgradeButton.onclick = () => {
+
+    if (Upgrader.upgrading) {
+      return;
+    }
+
+    if (
+      !Upgrader.selectedWagers.length ||
+      !Upgrader.selectedTargets.length
+    ) {
+
+      return;
+    }
+
+    const wager =
+      Upgrader.selectedWagers.reduce(
+        (a, b) =>
+          a + b.item.price,
+        0
+      );
+
+    const target =
+      Upgrader.selectedTargets.reduce(
+        (a, b) =>
+          a + b.item.price,
+        0
+      );
+
+    const chance =
+      Math.min(
+        100,
+        (wager * 0.95 / target) * 100
+      );
+
+    Upgrader.upgrading = true;
+
+    const circle =
+      document.getElementById(
+        "upgrade-circle"
+      );
+
+    const fill =
+      document.getElementById(
+        "upgrade-circle-fill"
+      );
+
+    const text =
+      document.getElementById(
+        "upgrade-circle-text"
+      );
+
+    if (circle) {
+
+      circle.classList.remove(
+        "win",
+        "lose"
+      );
+    }
+
+    if (fill) {
+
+      fill.style.background =
+        "green";
+
+      fill.style.height =
+        `${chance}%`;
+    }
+
+    if (text) {
+
+      text.textContent =
+        `${chance.toFixed(2)}%`;
+    }
+
+    // 2 SECOND PAUSE
+    setTimeout(() => {
+
+      const roll =
+        Math.random() * 100;
+
+      const win =
+        roll <= chance;
+
+      if (win) {
+
+        Upgrader.selectedTargets
+          .forEach(t => {
+
+            inventory.push({
+              ...t.item
+            });
+
+          });
+
+        if (circle) {
+          circle.classList.add("win");
+        }
+
+        if (fill) {
+          fill.style.background =
+            "lime";
+        }
+
+        if (text) {
+          text.textContent =
+            "WIN!";
+        }
+
+      } else {
+
+        if (circle) {
+          circle.classList.add("lose");
+        }
+
+        if (fill) {
+          fill.style.background =
+            "red";
+        }
+
+        if (text) {
+          text.textContent =
+            "LOSE!";
+        }
+      }
+
+      // Remove wager items
+      Upgrader.selectedWagers
+        .sort(
+          (a, b) =>
+            b.index - a.index
+        )
+        .forEach(w => {
+
+          inventory.splice(
+            w.index,
+            1
+          );
+        });
+
+      Upgrader.selectedWagers = [];
+
+      Upgrader.selectedTargets = [];
+
+      saveInventory();
+
+      renderInventory();
+
+      renderWager();
+
+      renderTarget();
+
+      updateUI();
+
+      updateBackpackValue();
+
+      populateCoinflipDropdown();
+
+      Upgrader.upgrading = false;
+
+    }, 2000);
+  };
 }
