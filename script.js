@@ -41,6 +41,126 @@ const PURE_TYPES = {
 const PURE_CONVERSION_RATE = 0.75;
 const PURE_STORAGE_KEY = "pures";
 
+const PURE_REMAINDER_STORAGE_KEY = "pureRemainder";
+let pureRemainder = loadPureRemainder();
+
+// ===================== SHARED POPUP SYSTEM =====================
+let activeSitePopup = null;
+
+function setupPopupSystem() {
+  if (document.getElementById("site-popup-root")) return;
+
+  const root = document.createElement("div");
+  root.id = "site-popup-root";
+  root.innerHTML = `
+    <div id="site-popup-box" role="dialog" aria-modal="true">
+      <button id="site-popup-close" type="button" aria-label="Close">×</button>
+      <h2 id="site-popup-title">TF2GRAND</h2>
+      <div id="site-popup-message"></div>
+      <input id="site-popup-input" autocomplete="off">
+      <div id="site-popup-buttons"></div>
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  root.addEventListener("click", event => {
+    if (event.target === root && activeSitePopup) {
+      activeSitePopup.cancel();
+    }
+  });
+}
+
+function siteAlert(message, title = "TF2GRAND") {
+  setupPopupSystem();
+
+  return new Promise(resolve => {
+    const root = document.getElementById("site-popup-root");
+    const titleEl = document.getElementById("site-popup-title");
+    const messageEl = document.getElementById("site-popup-message");
+    const input = document.getElementById("site-popup-input");
+    const buttons = document.getElementById("site-popup-buttons");
+    const close = document.getElementById("site-popup-close");
+
+    titleEl.textContent = title;
+    messageEl.textContent = String(message);
+    input.style.display = "none";
+    buttons.innerHTML = "";
+
+    const finish = () => {
+      root.classList.remove("open");
+      activeSitePopup = null;
+      resolve();
+    };
+
+    const ok = document.createElement("button");
+    ok.className = "theme-btn";
+    ok.type = "button";
+    ok.textContent = "OK";
+    ok.onclick = finish;
+
+    buttons.appendChild(ok);
+    close.onclick = finish;
+    root.classList.add("open");
+    ok.focus();
+
+    activeSitePopup = { cancel: finish };
+  });
+}
+
+function sitePrompt(message, defaultValue = "", title = "TF2GRAND") {
+  setupPopupSystem();
+
+  return new Promise(resolve => {
+    const root = document.getElementById("site-popup-root");
+    const titleEl = document.getElementById("site-popup-title");
+    const messageEl = document.getElementById("site-popup-message");
+    const input = document.getElementById("site-popup-input");
+    const buttons = document.getElementById("site-popup-buttons");
+    const close = document.getElementById("site-popup-close");
+
+    titleEl.textContent = title;
+    messageEl.textContent = String(message);
+    input.style.display = "block";
+    input.value = defaultValue;
+    input.type = /passkey|key/i.test(title + " " + message) ? "password" : "text";
+    buttons.innerHTML = "";
+
+    const finish = value => {
+      root.classList.remove("open");
+      activeSitePopup = null;
+      resolve(value);
+    };
+
+    const cancel = document.createElement("button");
+    cancel.className = "theme-btn";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.onclick = () => finish(null);
+
+    const confirm = document.createElement("button");
+    confirm.className = "theme-btn";
+    confirm.type = "button";
+    confirm.textContent = "Confirm";
+    confirm.onclick = () => finish(input.value);
+
+    buttons.append(cancel, confirm);
+    close.onclick = () => finish(null);
+    root.classList.add("open");
+
+    activeSitePopup = { cancel: () => finish(null) };
+
+    input.onkeydown = event => {
+      if (event.key === "Enter") finish(input.value);
+      if (event.key === "Escape") finish(null);
+    };
+
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 0);
+  });
+}
+
 let pures = loadPures();
 
 // ===================== ADMIN PASSWORD =====================
@@ -63,6 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     sortBtn.onclick = sortInventoryByPriceDesc;
   }
 
+  setupPopupSystem();
   updateCoins();
   setupPureSystem();
   renderPureBalances();
@@ -149,16 +270,16 @@ function setRandomCaseNeonColor() {
 
 // ===================== ADMIN PASSWORD CHECK =====================
 
-function checkAdminPassword() {
+async function checkAdminPassword() {
 
-  const password = prompt("Enter Key:");
+  const password = await sitePrompt("Enter Key:", "", "Trading Passkey");
 
   if (password === null) {
     return false;
   }
 
   if (password !== ADMIN_PASSWORD) {
-    alert("Incorrect Trading Passkey.");
+    siteAlert("Incorrect Trading Passkey.");
     return false;
   }
 
@@ -168,17 +289,15 @@ function checkAdminPassword() {
 
 // ===================== ADD COINS =====================
 
-function addCoinsAdmin() {
+async function addCoinsAdmin() {
 
   // Ask for password first
-  if (!checkAdminPassword()) {
+  if (!(await checkAdminPassword())) {
     return;
   }
 
   // Ask how many coins
-  const amountInput = prompt(
-    "Deposit Module"
-  );
+  const amountInput = await sitePrompt("How many coins would you like to deposit?", "", "Deposit");
 
   // Cancel
   if (amountInput === null) {
@@ -189,7 +308,7 @@ function addCoinsAdmin() {
 
   // Invalid amount
   if (!isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid amount greater than 0.");
+    siteAlert("Please enter a valid amount greater than 0.");
     return;
   }
 
@@ -198,23 +317,21 @@ function addCoinsAdmin() {
 
   updateCoins();
 
-  alert(`Added ${amount.toFixed(2)} coins.`);
+  siteAlert(`Added ${amount.toFixed(2)} coins.`);
 }
 
 
 // ===================== REMOVE COINS =====================
 
-function removeCoinsAdmin() {
+async function removeCoinsAdmin() {
 
   // Ask for password first
-  if (!checkAdminPassword()) {
+  if (!(await checkAdminPassword())) {
     return;
   }
 
   // Ask how many coins
-  const amountInput = prompt(
-    "Withdraw Module"
-  );
+  const amountInput = await sitePrompt("How many coins would you like to withdraw?", "", "Withdraw");
 
   // Cancel
   if (amountInput === null) {
@@ -225,13 +342,13 @@ function removeCoinsAdmin() {
 
   // Invalid amount
   if (!isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid amount greater than 0.");
+    siteAlert("Please enter a valid amount greater than 0.");
     return;
   }
 
   // Prevent going below zero
   if (amount > coins) {
-    alert(
+    siteAlert(
       `You cannot withdraw ${amount.toFixed(2)} coins.\n\n` +
       `You currently have ${coins.toFixed(2)} coins.`
     );
@@ -244,7 +361,7 @@ function removeCoinsAdmin() {
 
   updateCoins();
 
-  alert(`Removed ${amount.toFixed(2)} coins.`);
+  siteAlert(`Removed ${amount.toFixed(2)} coins.`);
 }
 
 
@@ -303,13 +420,16 @@ function renderInventory() {
       <img src="${item.image || ""}">
       <p>${item.name}</p>
       <small>${price.toFixed(2)} coins</small>
-      <button class="sell-btn theme-btn">Scrap</button>
+      ${isPure ? "" : '<button class="sell-btn theme-btn">Scrap</button>'}
       <button class="convert-btn theme-btn">Convert</button>
     `;
 
-    div.querySelector(".sell-btn").onclick = () => {
-      sellItem(index);
-    };
+    const sellButton = div.querySelector(".sell-btn");
+    if (sellButton) {
+      sellButton.onclick = () => {
+        sellItem(index);
+      };
+    }
 
     div.querySelector(".convert-btn").onclick = () => {
       convertInventoryItem(index);
@@ -435,6 +555,14 @@ function renderPureBalances() {
 
     container.appendChild(entry);
   });
+
+  const remainderEntry = document.createElement("div");
+  remainderEntry.className = "pure-balance-entry pure-remainder-entry";
+  remainderEntry.innerHTML = `
+    <div class="pure-remainder-symbol">◈</div>
+    <span>Remainder: ${formatPureRemainder()} coins</span>
+  `;
+  container.appendChild(remainderEntry);
 }
 
 function addPure(id, amount) {
@@ -449,32 +577,29 @@ function addPure(id, amount) {
   renderPureBalances();
 }
 
-function withdrawPure(id) {
+async function withdrawPure(id) {
 
   const pure = PURE_TYPES[id];
   const available = Number(pures[id]) || 0;
 
   if (!pure || available <= 0) {
-    alert(`You do not have any ${pure ? pure.name : "pure"}.`);
+    siteAlert(`You do not have any ${pure ? pure.name : "pure"}.`);
     return;
   }
 
-  const input = prompt(
-    `How many ${pure.name} would you like to take out?`,
-    String(available)
-  );
+  const input = await sitePrompt(`How many ${pure.name} would you like to take out?`, String(available), "Pure Withdraw");
 
   if (input === null) return;
 
   const amount = Math.floor(Number(input));
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid whole number.");
+    siteAlert("Please enter a valid whole number.");
     return;
   }
 
   if (amount > available) {
-    alert(`You only have ${available} ${pure.name}.`);
+    siteAlert(`You only have ${available} ${pure.name}.`);
     return;
   }
 
@@ -499,12 +624,60 @@ function withdrawPure(id) {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  alert(`Took out ${amount} ${pure.name}.`);
+  siteAlert(`Took out ${amount} ${pure.name}.`);
+}
+
+
+function loadPureRemainder() {
+  const saved = Number(localStorage.getItem(PURE_REMAINDER_STORAGE_KEY));
+  return Number.isFinite(saved) && saved > 0 ? Math.round(saved * 100) / 100 : 0;
+}
+
+function savePureRemainder() {
+  localStorage.setItem(PURE_REMAINDER_STORAGE_KEY, pureRemainder.toFixed(2));
+}
+
+function formatPureRemainder(value = pureRemainder) {
+  return (Number(value) || 0).toFixed(2);
+}
+
+function addPureRemainder(amount) {
+  const added = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
+  if (added <= 0) {
+    return { refinedAdded: 0, remainder: pureRemainder };
+  }
+
+  let totalHundredths = Math.round((pureRemainder + added) * 100);
+  const refinedValue = 3;
+  const refinedAdded = Math.floor(totalHundredths / refinedValue);
+  totalHundredths %= refinedValue;
+
+  pureRemainder = totalHundredths / 100;
+  savePureRemainder();
+
+  if (refinedAdded > 0) {
+    addPure("refined", refinedAdded);
+  }
+
+  return { refinedAdded, remainder: pureRemainder };
+}
+
+function getPureRemainderDisplay() {
+  return `Remainder: ${formatPureRemainder()} coins`;
 }
 
 function calculatePureBreakdown(coinValue) {
 
-  let remaining = Math.max(0, Number(coinValue) || 0);
+  // Work in hundredths of a coin to avoid floating-point rounding errors.
+  let remainingHundredths =
+    Math.max(0, Math.round((Number(coinValue) || 0) * 100));
+
+  const values = {
+    maxhead: 7256,
+    earbuds: 1872,
+    key: 236,
+    refined: 3
+  };
 
   const breakdown = {
     maxhead: 0,
@@ -513,22 +686,20 @@ function calculatePureBreakdown(coinValue) {
     refined: 0
   };
 
-  // Largest to smallest. A tiny epsilon prevents floating-point values
-  // such as 2.359999999 from incorrectly losing a whole unit.
-  const EPSILON = 1e-9;
-
   for (const id of ["maxhead", "earbuds", "key", "refined"]) {
-    const value = PURE_TYPES[id].value;
-    const count = Math.floor((remaining + EPSILON) / value);
 
-    if (count > 0) {
-      breakdown[id] = count;
-      remaining -= count * value;
-      if (remaining < EPSILON) remaining = 0;
-    }
+    const count = Math.floor(
+      remainingHundredths / values[id]
+    );
+
+    breakdown[id] = count;
+    remainingHundredths -= count * values[id];
   }
 
-  return { breakdown, remainder: Math.max(0, remaining) };
+  return {
+    breakdown,
+    remainder: remainingHundredths / 100
+  };
 }
 
 function formatPureBreakdown(breakdown) {
@@ -555,7 +726,7 @@ function convertInventoryItem(index) {
     const pureId = getPureId(item);
 
     if (!pureId) {
-      alert("This item could not be identified as a pure item.");
+      siteAlert("This item could not be identified as a pure item.");
       return;
     }
 
@@ -566,14 +737,14 @@ function convertInventoryItem(index) {
     populateCoinflipDropdown();
     updateBackpackValue();
 
-    alert(`Converted 1 ${PURE_TYPES[pureId].name} into your Pure balance.`);
+    siteAlert(`Converted 1 ${PURE_TYPES[pureId].name} into your Pure balance.`);
     return;
   }
 
   const itemValue = Number(item.price);
 
   if (!Number.isFinite(itemValue) || itemValue <= 0) {
-    alert("This item has no valid coin value to convert.");
+    siteAlert("This item has no valid coin value to convert.");
     return;
   }
 
@@ -583,7 +754,7 @@ function convertInventoryItem(index) {
   const totalUnits = Object.values(result.breakdown).reduce((sum, n) => sum + n, 0);
 
   if (totalUnits <= 0) {
-    alert(
+    siteAlert(
       `${item.name} is worth ${itemValue.toFixed(2)} coins, but its 75% conversion value is too small to make 1 Refined.`
     );
     return;
@@ -595,18 +766,26 @@ function convertInventoryItem(index) {
     addPure(id, result.breakdown[id]);
   });
 
+  const remainderResult = addPureRemainder(result.remainder);
+  renderPureBalances();
+
   // addPure saves/render balances; save the inventory after removal.
   saveInventory();
   renderInventory();
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  const remainderText = result.remainder >= 0.005
-    ? `
-Unused sub-Refined remainder: ${result.remainder.toFixed(4)} coins.`
-    : "";
+  const remainderText =
+    `
+This conversion's leftover: ${result.remainder.toFixed(2)} coins.` +
+    `
+Stored remainder: ${formatPureRemainder()}.` +
+    (remainderResult.refinedAdded > 0
+      ? `
+Auto-converted ${remainderResult.refinedAdded} Refined Metal from accumulated remainder.`
+      : "");
 
-  alert(
+  siteAlert(
     `Converted ${item.name}.\n\n` +
     `Original value: ${itemValue.toFixed(2)} coins\n` +
     `After 25% fee: ${convertibleValue.toFixed(2)} coins\n` +
@@ -618,6 +797,10 @@ Unused sub-Refined remainder: ${result.remainder.toFixed(4)} coins.`
 // ===================== SELL ITEM =====================
 
 function sellItem(index) {
+
+  if (!inventory[index] || isPureItem(inventory[index])) {
+    return;
+  }
 
   coins += inventory[index].price;
 
@@ -636,7 +819,7 @@ function sellItem(index) {
 function sellAllItems() {
 
   if (inventory.length === 0) {
-    alert("Backpack empty.");
+    siteAlert("Backpack empty.");
     return;
   }
 
@@ -655,7 +838,7 @@ function sellAllItems() {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  alert(
+  siteAlert(
     `Scrapped Backpack for ${total.toFixed(2)} coins.`
   );
 }
@@ -813,6 +996,8 @@ function populateCoinflipDropdown() {
 
   inventory.forEach((item, index) => {
 
+    if (isPureItem(item)) return;
+
     const option =
       document.createElement("option");
 
@@ -823,6 +1008,11 @@ function populateCoinflipDropdown() {
 
     select.appendChild(option);
   });
+
+  if (select.options.length === 0) {
+    select.innerHTML = `<option>No items available</option>`;
+    select.disabled = true;
+  }
 }
 
 
@@ -882,7 +1072,7 @@ function coinflipItem(index) {
             ...item
           });
 
-          alert(
+          siteAlert(
             `You won another ${item.name} 🎉!`
           );
 
@@ -890,7 +1080,7 @@ function coinflipItem(index) {
 
           inventory.splice(index, 1);
 
-          alert(
+          siteAlert(
             `You lost, your ${item.name} was destroyed.`
           );
         }
@@ -1063,7 +1253,7 @@ function openCases(count) {
 
     if (coins < currentCase.price) {
 
-      alert("Not enough coins.");
+      siteAlert("Not enough coins.");
 
       isSpinning = false;
 
@@ -1350,7 +1540,7 @@ function showWinner(item) {
 
 // ===================== ADMIN GIVE ITEMS =====================
 
-function adminGiveItem() {
+async function adminGiveItem() {
 
   const panel =
     document.getElementById(
@@ -1369,10 +1559,7 @@ function adminGiveItem() {
   // Password
   if (!adminMode) {
 
-    const password =
-      prompt(
-        "Enter Trading passkey:"
-      );
+    const password = await sitePrompt("Enter Trading passkey:", "", "Trading Passkey");
 
     if (password === null) {
       return;
@@ -1380,7 +1567,7 @@ function adminGiveItem() {
 
     if (password !== ADMIN_PASSWORD) {
 
-      alert(
+      siteAlert(
         "Incorrect Trading Passkey."
       );
 
@@ -1389,7 +1576,7 @@ function adminGiveItem() {
 
     adminMode = true;
 
-    alert(
+    siteAlert(
       "Trading Mode Enabled."
     );
   }
@@ -1442,7 +1629,7 @@ function adminGiveItem() {
 
         if (coins < item.price) {
 
-          alert(
+          siteAlert(
             "Not enough coins."
           );
 
@@ -1465,7 +1652,7 @@ function adminGiveItem() {
 
         updateBackpackValue();
 
-        alert(
+        siteAlert(
           `Traded ${item.name} for ${item.price.toFixed(2)} coins`
         );
       };
@@ -1647,6 +1834,8 @@ function renderWager() {
 
   inventory.forEach(
     (item, index) => {
+
+      if (isPureItem(item)) return;
 
       const key =
         getKey(item, index);
