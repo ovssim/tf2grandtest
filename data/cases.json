@@ -483,7 +483,7 @@
         { "name": "Refined Metal", "rarity": "legendary", "price": 0.03, "weight": 10960, "image": "images/items/refined.png" },
         { "name": "Alien Swarm Parasite", "rarity": "legendary", "price": 0.30, "weight": 10000, "image": "images/items/alienswarmparasite.png" },
         { "name": "Ghastlierest Gibus", "rarity": "legendary", "price": 1.46, "weight": 10000, "image": "images/items/ghastlierestgibus.png" },
-        { "name": "Mann Co. Supply Crate Key", "rarity": "legendary", "price": 2.25, "weight": 10000, "image": "images/items/key.png" },
+        { "name": "Mann Co. Supply Crate Key", "rarity": "legendary", "price": 2.36, "weight": 10000, "image": "images/items/key.png" },
         { "name": "Upgrade to Premium Gift", "rarity": "legendary", "price": 5.00, "weight": 20000, "image": "images/items/utpg.png" },
         { "name": "Bill's Hat", "rarity": "legendary", "price": 6.98, "weight": 20000, "image": "images/items/billshat.png" },
         { "name": "Pyrovision Goggles", "rarity": "legendary", "price": 8.50, "weight": 5000, "image": "images/items/pyrovisiongoggles.png" },
@@ -504,7 +504,7 @@
       "price": 10.50,
       "image": "images/cases/cauldronbubble.webp",
       "items": [
-        { "name": "Mann Co. Supply Crate Key", "rarity": "legendary", "price": 2.25, "weight": 95000, "image": "images/items/key.png" },
+        { "name": "Mann Co. Supply Crate Key", "rarity": "legendary", "price": 2.36, "weight": 95000, "image": "images/items/key.png" },
         { "name": "Steaming Bloke's Bucket", "rarity": "mythical", "price": 21.64, "weight": 1400, "image": "images/items/sbb.png" },
         { "name": "Sunbeams Elf Esteem", "rarity": "mythical", "price": 36.90, "weight": 1000, "image": "images/items/see.png" },
         { "name": "Cloud 9 Hustler's Hallmark", "rarity": "mythical", "price": 81.00, "weight": 750, "image": "images/items/c9hh.png" },
