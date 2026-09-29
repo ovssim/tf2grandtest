@@ -38,29 +38,6 @@ const PURE_TYPES = {
   }
 };
 
-// ===================== PURE CRAFTING =====================
-// Each recipe is based on the site's pure coin values. Any tiny
-// overage is returned to the stored Pure Remainder instead of being lost.
-const PURE_CRAFT_RECIPES = {
-  key: {
-    output: "key",
-    inputs: { refined: 79 },
-    label: "79 Refined → 1 Key"
-  },
-  earbuds: {
-    output: "earbuds",
-    inputs: { key: 7, refined: 74 },
-    label: "7 Keys + 74 Refined → 1 Earbuds"
-  },
-  maxhead: {
-    output: "maxhead",
-    inputs: { earbuds: 3, key: 6, refined: 75 },
-    label: "3 Earbuds + 6 Keys + 75 Refined → 1 Max's Head"
-  }
-};
-
-const PURE_CRAFT_ORDER = ["refined", "key", "earbuds", "maxhead"];
-
 const PURE_CONVERSION_RATE = 0.75;
 const PURE_STORAGE_KEY = "pures";
 
@@ -566,27 +543,15 @@ function renderPureBalances() {
 
     const entry = document.createElement("div");
     entry.className = "pure-balance-entry";
-    const craftRecipe = PURE_CRAFT_RECIPES[id];
-
     entry.innerHTML = `
       <img src="${pure.image}" alt="${pure.name}">
       <span>${amount}</span>
-      <div class="pure-balance-actions">
-        ${craftRecipe ? '<button class="theme-btn pure-craft-btn" type="button">Craft Up</button>' : ''}
-        <button class="theme-btn pure-withdraw-btn" type="button">Take Out</button>
-      </div>
+      <button class="theme-btn pure-withdraw-btn" type="button">Take Out</button>
     `;
 
     entry.querySelector(".pure-withdraw-btn").onclick = () => {
       withdrawPure(id);
     };
-
-    const craftButton = entry.querySelector(".pure-craft-btn");
-    if (craftButton) {
-      craftButton.onclick = () => {
-        craftPure(id);
-      };
-    }
 
     container.appendChild(entry);
   });
@@ -611,95 +576,6 @@ function addPure(id, amount) {
   savePures();
   renderPureBalances();
 }
-
-async function craftPure(outputId) {
-
-  const recipe = PURE_CRAFT_RECIPES[outputId];
-  const output = PURE_TYPES[outputId];
-
-  if (!recipe || !output) return;
-
-  const requirements = Object.entries(recipe.inputs);
-
-  const missing = requirements
-    .filter(([id, amount]) => (Number(pures[id]) || 0) < amount)
-    .map(([id, amount]) => {
-      const have = Number(pures[id]) || 0;
-      return `${Math.max(0, amount - have)} ${PURE_TYPES[id].name}`;
-    });
-
-  if (missing.length) {
-    siteAlert(
-      `You do not have enough Pure to craft 1 ${output.name}.\n\n` +
-      `Recipe: ${recipe.label}\n` +
-      `Missing: ${missing.join(", ")}`
-    );
-    return;
-  }
-
-  const inputValue = requirements.reduce(
-    (total, [id, amount]) => total + amount * PURE_TYPES[id].value,
-    0
-  );
-
-  const outputValue = output.value;
-  const overage = Math.max(0, Math.round((inputValue - outputValue) * 100) / 100);
-
-  const confirmation = await sitePrompt(
-    `Recipe: ${recipe.label}\n\n` +
-    `Your Pure will be consumed and 1 ${output.name} will be created.` +
-    (overage > 0 ? `\n\n${overage.toFixed(2)} coins will be added to your Pure Remainder.` : ""),
-    "1",
-    `Craft ${output.shortName || output.name}`
-  );
-
-  if (confirmation === null) return;
-
-  const amount = Math.floor(Number(confirmation));
-  if (!Number.isFinite(amount) || amount <= 0) {
-    siteAlert("Please enter a valid whole number of crafts.");
-    return;
-  }
-
-  const maxCraftable = Math.min(
-    ...requirements.map(([id, required]) =>
-      Math.floor((Number(pures[id]) || 0) / required)
-    )
-  );
-
-  if (amount > maxCraftable) {
-    siteAlert(
-      `You can only craft ${maxCraftable} ${output.name}${maxCraftable === 1 ? "" : "s"} with your current Pure.`
-    );
-    return;
-  }
-
-  requirements.forEach(([id, required]) => {
-    pures[id] = (Number(pures[id]) || 0) - required * amount;
-  });
-
-  pures[outputId] = (Number(pures[outputId]) || 0) + amount;
-
-  // Return the recipe's small value overage to the existing remainder system.
-  const remainderResult = addPureRemainder(overage * amount);
-
-  savePures();
-  savePureRemainder();
-  renderPureBalances();
-
-  siteAlert(
-    `Crafted ${amount} ${output.name}${amount === 1 ? "" : "s"}.\n\n` +
-    `Used: ${requirements.map(([id, required]) => `${required * amount} ${PURE_TYPES[id].shortName || PURE_TYPES[id].name}`).join(" + ")}\n` +
-    (overage > 0
-      ? `Added ${overage.toFixed(2)} coins × ${amount} to Pure Remainder.\n`
-      : "") +
-    `Pure Remainder: ${formatPureRemainder()}` +
-    (remainderResult.refinedAdded > 0
-      ? `\nAuto-converted ${remainderResult.refinedAdded} Refined Metal from accumulated remainder.`
-      : "")
-  );
-}
-
 
 async function withdrawPure(id) {
 
