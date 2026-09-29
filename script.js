@@ -40,7 +40,6 @@ const PURE_TYPES = {
 
 // ===================== PURE CRAFTING =====================
 // Each recipe is based on the site's pure coin values. Any tiny
-// overage is returned to the stored Pure Remainder instead of being lost.
 const PURE_CRAFT_RECIPES = {
   key: {
     output: "key",
@@ -64,8 +63,8 @@ const PURE_CRAFT_ORDER = ["refined", "key", "earbuds", "maxhead"];
 const PURE_CONVERSION_RATE = 0.75;
 const PURE_STORAGE_KEY = "pures";
 
-const PURE_REMAINDER_STORAGE_KEY = "pureRemainder";
-let pureRemainder = loadPureRemainder();
+// Any fractional/excess value from Pure crafting or conversion is discarded.
+localStorage.removeItem("pureRemainder");
 
 // ===================== SHARED POPUP SYSTEM =====================
 let activeSitePopup = null;
@@ -591,13 +590,6 @@ function renderPureBalances() {
     container.appendChild(entry);
   });
 
-  const remainderEntry = document.createElement("div");
-  remainderEntry.className = "pure-balance-entry pure-remainder-entry";
-  remainderEntry.innerHTML = `
-    <div class="pure-remainder-symbol">◈</div>
-    <span>Remainder: ${formatPureRemainder()} coins</span>
-  `;
-  container.appendChild(remainderEntry);
 }
 
 function addPure(id, amount) {
@@ -637,18 +629,10 @@ async function craftPure(outputId) {
     return;
   }
 
-  const inputValue = requirements.reduce(
-    (total, [id, amount]) => total + amount * PURE_TYPES[id].value,
-    0
-  );
-
-  const outputValue = output.value;
-  const overage = Math.max(0, Math.round((inputValue - outputValue) * 100) / 100);
-
   const confirmation = await sitePrompt(
     `Recipe: ${recipe.label}\n\n` +
-    `Your Pure will be consumed and 1 ${output.name} will be created.` +
-    (overage > 0 ? `\n\n${overage.toFixed(2)} coins will be added to your Pure Remainder.` : ""),
+    `Your Pure will be consumed and 1 ${output.name} will be created.\n\n` +
+    `Any value difference in the recipe is discarded.`,
     "1",
     `Craft ${output.shortName || output.name}`
   );
@@ -680,23 +664,12 @@ async function craftPure(outputId) {
 
   pures[outputId] = (Number(pures[outputId]) || 0) + amount;
 
-  // Return the recipe's small value overage to the existing remainder system.
-  const remainderResult = addPureRemainder(overage * amount);
-
   savePures();
-  savePureRemainder();
   renderPureBalances();
 
   siteAlert(
     `Crafted ${amount} ${output.name}${amount === 1 ? "" : "s"}.\n\n` +
-    `Used: ${requirements.map(([id, required]) => `${required * amount} ${PURE_TYPES[id].shortName || PURE_TYPES[id].name}`).join(" + ")}\n` +
-    (overage > 0
-      ? `Added ${overage.toFixed(2)} coins × ${amount} to Pure Remainder.\n`
-      : "") +
-    `Pure Remainder: ${formatPureRemainder()}` +
-    (remainderResult.refinedAdded > 0
-      ? `\nAuto-converted ${remainderResult.refinedAdded} Refined Metal from accumulated remainder.`
-      : "")
+    `Used: ${requirements.map(([id, required]) => `${required * amount} ${PURE_TYPES[id].shortName || PURE_TYPES[id].name}`).join(" + ")}`
   );
 }
 
@@ -752,44 +725,6 @@ async function withdrawPure(id) {
 }
 
 
-function loadPureRemainder() {
-  const saved = Number(localStorage.getItem(PURE_REMAINDER_STORAGE_KEY));
-  return Number.isFinite(saved) && saved > 0 ? Math.round(saved * 100) / 100 : 0;
-}
-
-function savePureRemainder() {
-  localStorage.setItem(PURE_REMAINDER_STORAGE_KEY, pureRemainder.toFixed(2));
-}
-
-function formatPureRemainder(value = pureRemainder) {
-  return (Number(value) || 0).toFixed(2);
-}
-
-function addPureRemainder(amount) {
-  const added = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
-  if (added <= 0) {
-    return { refinedAdded: 0, remainder: pureRemainder };
-  }
-
-  let totalHundredths = Math.round((pureRemainder + added) * 100);
-  const refinedValue = 3;
-  const refinedAdded = Math.floor(totalHundredths / refinedValue);
-  totalHundredths %= refinedValue;
-
-  pureRemainder = totalHundredths / 100;
-  savePureRemainder();
-
-  if (refinedAdded > 0) {
-    addPure("refined", refinedAdded);
-  }
-
-  return { refinedAdded, remainder: pureRemainder };
-}
-
-function getPureRemainderDisplay() {
-  return `Remainder: ${formatPureRemainder()} coins`;
-}
-
 function calculatePureBreakdown(coinValue) {
 
   // Work in hundredths of a coin to avoid floating-point rounding errors.
@@ -820,10 +755,7 @@ function calculatePureBreakdown(coinValue) {
     remainingHundredths -= count * values[id];
   }
 
-  return {
-    breakdown,
-    remainder: remainingHundredths / 100
-  };
+  return breakdown;
 }
 
 function formatPureBreakdown(breakdown) {
@@ -874,8 +806,8 @@ function convertInventoryItem(index) {
 
   // 25% conversion fee: only 75% of the item's normal price becomes pure value.
   const convertibleValue = itemValue * PURE_CONVERSION_RATE;
-  const result = calculatePureBreakdown(convertibleValue);
-  const totalUnits = Object.values(result.breakdown).reduce((sum, n) => sum + n, 0);
+  const breakdown = calculatePureBreakdown(convertibleValue);
+  const totalUnits = Object.values(breakdown).reduce((sum, n) => sum + n, 0);
 
   if (totalUnits <= 0) {
     siteAlert(
@@ -886,11 +818,10 @@ function convertInventoryItem(index) {
 
   inventory.splice(index, 1);
 
-  Object.keys(result.breakdown).forEach(id => {
-    addPure(id, result.breakdown[id]);
+  Object.keys(breakdown).forEach(id => {
+    addPure(id, breakdown[id]);
   });
 
-  const remainderResult = addPureRemainder(result.remainder);
   renderPureBalances();
 
   // addPure saves/render balances; save the inventory after removal.
@@ -899,21 +830,12 @@ function convertInventoryItem(index) {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  const remainderText =
-    `
-This conversion's leftover: ${result.remainder.toFixed(2)} coins.` +
-    `
-Stored remainder: ${formatPureRemainder()}.` +
-    (remainderResult.refinedAdded > 0
-      ? `
-Auto-converted ${remainderResult.refinedAdded} Refined Metal from accumulated remainder.`
-      : "");
-
   siteAlert(
     `Converted ${item.name}.\n\n` +
     `Original value: ${itemValue.toFixed(2)} coins\n` +
     `After 25% fee: ${convertibleValue.toFixed(2)} coins\n` +
-    `Received: ${formatPureBreakdown(result.breakdown)}${remainderText}`
+    `Received: ${formatPureBreakdown(breakdown)}\n\n` +
+    `Any leftover fractional value is discarded.`
   );
 }
 
