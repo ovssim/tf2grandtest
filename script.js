@@ -1,4 +1,3 @@
-```javascript
 // ===================== GLOBAL STATE =====================
 let coins = parseFloat(localStorage.getItem("coins"));
 if (isNaN(coins) || coins < 0) coins = 20;
