@@ -1,374 +1,3 @@
-// ===================== PURE CURRENCY SYSTEM =====================
-
-const PURE_DEFINITIONS = {
-  refined: {
-    id: "refined",
-    name: "Refined Metal",
-    shortName: "Refined",
-    image: "images/items/refined.png",
-    coinValue: 0.03,
-    aliases: ["refined metal", "refined"]
-  },
-
-  key: {
-    id: "key",
-    name: "Mann Co. Supply Crate Key",
-    shortName: "Keys",
-    image: "images/items/key.png",
-    coinValue: 2.36,
-    aliases: [
-      "mann co. supply crate key",
-      "mann co supply crate key",
-      "supply crate key",
-      "mann co key",
-      "key"
-    ]
-  },
-
-  earbuds: {
-    id: "earbuds",
-    name: "Earbuds",
-    shortName: "Earbuds",
-    image: "images/items/earbuds.png",
-    coinValue: 18.72,
-    aliases: ["earbuds", "earbud"]
-  },
-
-  maxHeads: {
-    id: "maxHeads",
-    name: "Max's Severed Head",
-    shortName: "Max's Heads",
-    image: "images/items/maxhead.png",
-    coinValue: 72.56,
-    aliases: [
-      "max's severed head",
-      "max's severed heads",
-      "maxs severed head",
-      "maxs severed heads"
-    ]
-  }
-};
-
-const PURE_STORAGE_KEY = "pures";
-let pures = loadPureBalances();
-
-function loadPureBalances() {
-  let saved = null;
-
-  try {
-    saved = JSON.parse(
-      localStorage.getItem(PURE_STORAGE_KEY) || "null"
-    );
-  } catch (error) {
-    saved = null;
-  }
-
-  const balances = {};
-
-  Object.keys(PURE_DEFINITIONS).forEach(id => {
-    const value = saved ? Number(saved[id]) : 0;
-    balances[id] =
-      Number.isFinite(value) && value > 0
-        ? Math.floor(value)
-        : 0;
-  });
-
-  return balances;
-}
-
-function savePureBalances() {
-  localStorage.setItem(
-    PURE_STORAGE_KEY,
-    JSON.stringify(pures)
-  );
-}
-
-function normalizePureName(name) {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[’]/g, "'")
-    .replace(/\s+/g, " ");
-}
-
-function getPureId(item) {
-  if (!item) return null;
-
-  if (
-    item.pureId &&
-    PURE_DEFINITIONS[item.pureId]
-  ) {
-    return item.pureId;
-  }
-
-  const normalized = normalizePureName(item.name);
-
-  for (const [id, pure] of Object.entries(PURE_DEFINITIONS)) {
-    if (
-      pure.aliases.some(
-        alias => normalizePureName(alias) === normalized
-      )
-    ) {
-      return id;
-    }
-  }
-
-  return null;
-}
-
-function isPureItem(item) {
-  return Boolean(getPureId(item));
-}
-
-function getPureDefinition(id) {
-  return PURE_DEFINITIONS[id] || null;
-}
-
-function formatPureQuantity(id, amount) {
-  return Math.floor(Number(amount) || 0).toString();
-}
-
-function getPureUnitValue(id) {
-  const pure = getPureDefinition(id);
-  return pure ? pure.coinValue : 0;
-}
-
-function renderPureBalances() {
-  const container = document.getElementById("pure-balances");
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  Object.values(PURE_DEFINITIONS).forEach(pure => {
-    const card = document.createElement("div");
-    card.className = "pure-balance-card";
-
-    const amount = pures[pure.id] || 0;
-
-    card.innerHTML = `
-      <img
-        src="${pure.image}"
-        alt="${pure.name}"
-        class="pure-balance-icon"
-      >
-
-      <div class="pure-balance-info">
-        <span>${pure.shortName}</span>
-        <strong>${formatPureQuantity(pure.id, amount)}</strong>
-      </div>
-
-      <button
-        class="theme-btn pure-takeout-btn"
-        type="button"
-        ${amount <= 0 ? "disabled" : ""}
-      >
-        Take Out
-      </button>
-    `;
-
-    const button = card.querySelector(".pure-takeout-btn");
-    if (button) {
-      button.onclick = () => withdrawPureToInventory(pure.id);
-    }
-
-    container.appendChild(card);
-  });
-}
-
-function updatePureBalances() {
-  savePureBalances();
-  renderPureBalances();
-}
-
-function addPureBalance(id, amount) {
-  if (!PURE_DEFINITIONS[id]) return;
-
-  const numericAmount = Math.floor(Number(amount) || 0);
-  if (numericAmount <= 0) return;
-
-  pures[id] = (Number(pures[id]) || 0) + numericAmount;
-  updatePureBalances();
-}
-
-function getWholePureAmountForItem(item, pureId) {
-  const pureValue = getPureUnitValue(pureId);
-  const itemValue = Number(item && item.price);
-
-  if (
-    !Number.isFinite(itemValue) ||
-    itemValue <= 0 ||
-    pureValue <= 0
-  ) {
-    return 0;
-  }
-
-  // 25% conversion cost: only 75% of the item's value is converted.
-  const convertedValue = itemValue * 0.75;
-
-  // Pure units are whole units. Any remainder is discarded.
-  return Math.floor(
-    convertedValue / pureValue + 1e-9
-  );
-}
-
-function openPureConversion(itemIndex) {
-  const item = inventory[itemIndex];
-  if (!item) return;
-
-  const existingPureId = getPureId(item);
-
-  // A physical pure is simply moved into the pure balance.
-  if (existingPureId) {
-    convertPureItemToBalance(itemIndex, existingPureId);
-    return;
-  }
-
-  const modal = document.getElementById("pure-convert-modal");
-  const title = document.getElementById("pure-convert-title");
-  const details = document.getElementById("pure-convert-details");
-  const options = document.getElementById("pure-convert-options");
-
-  if (!modal || !title || !details || !options) return;
-
-  const itemValue = Number(item.price) || 0;
-  const convertedValue = itemValue * 0.75;
-
-  title.textContent = `Convert ${item.name}`;
-  details.textContent =
-    `${itemValue.toFixed(2)} coins → ${convertedValue.toFixed(2)} pure value (25% conversion cost).`;
-
-  options.innerHTML = "";
-
-  Object.values(PURE_DEFINITIONS).forEach(pure => {
-    const amount = getWholePureAmountForItem(item, pure.id);
-
-    const option = document.createElement("button");
-    option.type = "button";
-    option.className = "pure-convert-option";
-    option.disabled = amount <= 0;
-
-    option.innerHTML = `
-      <img src="${pure.image}" alt="${pure.name}">
-      <span>
-        <strong>${pure.name}</strong>
-        <small>
-          Receive ${formatPureQuantity(pure.id, amount)} ${pure.shortName}
-        </small>
-      </span>
-    `;
-
-    option.onclick = () => {
-      convertItemToPure(itemIndex, pure.id);
-    };
-
-    options.appendChild(option);
-  });
-
-  modal.style.display = "flex";
-}
-
-function closePureConversion() {
-  const modal = document.getElementById("pure-convert-modal");
-  if (modal) modal.style.display = "none";
-}
-
-function convertPureItemToBalance(itemIndex, pureId) {
-  const item = inventory[itemIndex];
-  if (!item || !PURE_DEFINITIONS[pureId]) return;
-
-  inventory.splice(itemIndex, 1);
-  addPureBalance(pureId, 1);
-
-  saveInventory();
-  renderInventory();
-  populateCoinflipDropdown();
-  updateBackpackValue();
-
-  alert(
-    `${item.name} was converted into 1 ${PURE_DEFINITIONS[pureId].name}.`
-  );
-}
-
-function convertItemToPure(itemIndex, pureId) {
-  const item = inventory[itemIndex];
-  if (!item || !PURE_DEFINITIONS[pureId]) return;
-
-  const amount = getWholePureAmountForItem(item, pureId);
-
-  if (amount <= 0) {
-    alert(
-      "This item is not worth enough to produce 1 whole unit of that pure after the 25% conversion cost."
-    );
-    closePureConversion();
-    return;
-  }
-
-  inventory.splice(itemIndex, 1);
-  addPureBalance(pureId, amount);
-
-  saveInventory();
-  renderInventory();
-  populateCoinflipDropdown();
-  updateBackpackValue();
-  closePureConversion();
-
-  alert(
-    `Converted ${item.name} into ${formatPureQuantity(pureId, amount)} ${PURE_DEFINITIONS[pureId].name}.`
-  );
-}
-
-function withdrawPureToInventory(pureId) {
-  const pure = getPureDefinition(pureId);
-  if (!pure) return;
-
-  const current = Math.floor(Number(pures[pureId]) || 0);
-  if (current <= 0) return;
-
-  const amountInput = prompt(
-    `How many ${pure.name} would you like to take out?\n\nAvailable: ${formatPureQuantity(pureId, current)}`
-  );
-
-  if (amountInput === null) return;
-
-  const amount = Math.floor(Number(amountInput) || 0);
-
-  if (amount <= 0) {
-    alert("Please enter a valid whole number.");
-    return;
-  }
-
-  if (amount > current) {
-    alert(
-      `You only have ${formatPureQuantity(pureId, current)} ${pure.name}.`
-    );
-    return;
-  }
-
-  pures[pureId] = current - amount;
-
-  for (let i = 0; i < amount; i++) {
-    inventory.push({
-      name: pure.name,
-      rarity: "legendary",
-      price: pure.coinValue,
-      weight: 0,
-      image: pure.image,
-      pureId: pure.id
-    });
-  }
-
-  savePureBalances();
-  saveInventory();
-  renderPureBalances();
-  renderInventory();
-  populateCoinflipDropdown();
-  updateBackpackValue();
-
-  alert(
-    `Took ${amount} ${pure.name} out of pure currency and placed it into your inventory.`
-  );
-}
-
 // ===================== GLOBAL STATE =====================
 let coins = parseFloat(localStorage.getItem("coins"));
 if (isNaN(coins) || coins < 0) coins = 20;
@@ -379,6 +8,40 @@ let cases = [];
 let currentCase = null;
 
 let isSpinning = false;
+
+// ===================== PURE SYSTEM =====================
+// Pure values use the site's existing coin values.
+const PURE_TYPES = {
+  maxhead: {
+    id: "maxhead",
+    name: "Max's Severed Head",
+    value: 72.56,
+    image: "images/items/maxhead.png"
+  },
+  earbuds: {
+    id: "earbuds",
+    name: "Earbuds",
+    value: 18.72,
+    image: "images/items/earbuds.png"
+  },
+  key: {
+    id: "key",
+    name: "Mann Co. Supply Crate Key",
+    value: 2.36,
+    image: "images/items/key.png"
+  },
+  refined: {
+    id: "refined",
+    name: "Refined Metal",
+    value: 0.03,
+    image: "images/items/refined.png"
+  }
+};
+
+const PURE_CONVERSION_RATE = 0.75;
+const PURE_STORAGE_KEY = "pures";
+
+let pures = loadPures();
 
 // ===================== ADMIN PASSWORD =====================
 let adminMode = false;
@@ -401,26 +64,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   updateCoins();
+  setupPureSystem();
   renderPureBalances();
   renderInventory();
   renderTopDrops();
   loadCases();
   populateCoinflipDropdown();
   updateBackpackValue();
-
-  const pureCloseButton = document.getElementById("pure-convert-close");
-  if (pureCloseButton) {
-    pureCloseButton.onclick = closePureConversion;
-  }
-
-  const pureModal = document.getElementById("pure-convert-modal");
-  if (pureModal) {
-    pureModal.addEventListener("click", event => {
-      if (event.target === pureModal) {
-        closePureConversion();
-      }
-    });
-  }
 
   // Buttons
   const sellAllBtn = document.getElementById("sell-all-btn");
@@ -645,22 +295,16 @@ function renderInventory() {
     div.className =
       `inv-item ${String(item.rarity || "common").toLowerCase()}`;
 
-    const pureId = getPureId(item);
+    const isPure = isPureItem(item);
+
+    const price = Number(item.price) || 0;
 
     div.innerHTML = `
-      <img src="${item.image}">
+      <img src="${item.image || ""}">
       <p>${item.name}</p>
-      <small>${Number(item.price || 0).toFixed(2)} coins</small>
-
-      <div class="inventory-action-row">
-        <button class="sell-btn theme-btn" type="button">
-          Scrap
-        </button>
-
-        <button class="convert-btn theme-btn" type="button">
-          Convert
-        </button>
-      </div>
+      <small>${price.toFixed(2)} coins</small>
+      <button class="sell-btn theme-btn">Scrap</button>
+      <button class="convert-btn theme-btn">Convert</button>
     `;
 
     div.querySelector(".sell-btn").onclick = () => {
@@ -668,18 +312,307 @@ function renderInventory() {
     };
 
     div.querySelector(".convert-btn").onclick = () => {
-      openPureConversion(index);
+      convertInventoryItem(index);
     };
 
-    // Keep the pure ID available on physical pure inventory items.
-    if (pureId) {
-      div.dataset.pureId = pureId;
+    // Pure items are physical inventory items until converted.
+    if (isPure) {
+      div.classList.add("pure-inventory-item");
     }
 
     container.appendChild(div);
   });
 }
 
+
+// ===================== PURE SYSTEM =====================
+
+function loadPures() {
+
+  const saved = JSON.parse(
+    localStorage.getItem(PURE_STORAGE_KEY) || "null"
+  );
+
+  const result = {
+    maxhead: 0,
+    earbuds: 0,
+    key: 0,
+    refined: 0
+  };
+
+  if (!saved || typeof saved !== "object") {
+    return result;
+  }
+
+  Object.keys(result).forEach(id => {
+    const amount = Number(saved[id]);
+    result[id] = Number.isFinite(amount) && amount > 0
+      ? Math.floor(amount)
+      : 0;
+  });
+
+  return result;
+}
+
+function savePures() {
+  localStorage.setItem(PURE_STORAGE_KEY, JSON.stringify(pures));
+}
+
+function isPureItem(item) {
+  if (!item) return false;
+
+  if (item.isPure === true && item.pureId) {
+    return true;
+  }
+
+  const name = String(item.name || "").trim().toLowerCase();
+
+  return Object.values(PURE_TYPES).some(
+    pure => pure.name.toLowerCase() === name
+  );
+}
+
+function getPureId(item) {
+  if (!item) return null;
+
+  if (item.pureId && PURE_TYPES[item.pureId]) {
+    return item.pureId;
+  }
+
+  const name = String(item.name || "").trim().toLowerCase();
+
+  const match = Object.values(PURE_TYPES).find(
+    pure => pure.name.toLowerCase() === name
+  );
+
+  return match ? match.id : null;
+}
+
+function setupPureSystem() {
+
+  // The JS can create the Pure UI if it is not already present in index.html.
+  let section = document.getElementById("pure-section");
+
+  if (!section) {
+    const inventory = document.getElementById("inventory");
+    if (!inventory || !inventory.parentElement) return;
+
+    section = document.createElement("section");
+    section.id = "pure-section";
+    section.innerHTML = `
+      <div id="pure-header">
+        <h2>Pure</h2>
+        <div id="pure-balances"></div>
+      </div>
+    `;
+
+    inventory.parentElement.insertBefore(section, inventory);
+  }
+}
+
+function renderPureBalances() {
+
+  const container = document.getElementById("pure-balances");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  ["maxhead", "earbuds", "key", "refined"].forEach(id => {
+    const pure = PURE_TYPES[id];
+    const amount = Number(pures[id]) || 0;
+
+    const entry = document.createElement("div");
+    entry.className = "pure-balance-entry";
+    entry.innerHTML = `
+      <img src="${pure.image}" alt="${pure.name}">
+      <span>${amount}</span>
+      <button class="theme-btn pure-withdraw-btn" type="button">Take Out</button>
+    `;
+
+    entry.querySelector(".pure-withdraw-btn").onclick = () => {
+      withdrawPure(id);
+    };
+
+    container.appendChild(entry);
+  });
+}
+
+function addPure(id, amount) {
+
+  if (!PURE_TYPES[id]) return;
+
+  const wholeAmount = Math.floor(Number(amount));
+  if (!Number.isFinite(wholeAmount) || wholeAmount <= 0) return;
+
+  pures[id] = (Number(pures[id]) || 0) + wholeAmount;
+  savePures();
+  renderPureBalances();
+}
+
+function withdrawPure(id) {
+
+  const pure = PURE_TYPES[id];
+  const available = Number(pures[id]) || 0;
+
+  if (!pure || available <= 0) {
+    alert(`You do not have any ${pure ? pure.name : "pure"}.`);
+    return;
+  }
+
+  const input = prompt(
+    `How many ${pure.name} would you like to take out?`,
+    String(available)
+  );
+
+  if (input === null) return;
+
+  const amount = Math.floor(Number(input));
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    alert("Please enter a valid whole number.");
+    return;
+  }
+
+  if (amount > available) {
+    alert(`You only have ${available} ${pure.name}.`);
+    return;
+  }
+
+  for (let i = 0; i < amount; i++) {
+    inventory.push({
+      name: pure.name,
+      rarity: "pure",
+      price: pure.value,
+      weight: 0,
+      image: pure.image,
+      isPure: true,
+      pureId: pure.id
+    });
+  }
+
+  pures[id] -= amount;
+
+  savePures();
+  saveInventory();
+  renderPureBalances();
+  renderInventory();
+  populateCoinflipDropdown();
+  updateBackpackValue();
+
+  alert(`Took out ${amount} ${pure.name}.`);
+}
+
+function calculatePureBreakdown(coinValue) {
+
+  let remaining = Math.max(0, Number(coinValue) || 0);
+
+  const breakdown = {
+    maxhead: 0,
+    earbuds: 0,
+    key: 0,
+    refined: 0
+  };
+
+  // Largest to smallest. A tiny epsilon prevents floating-point values
+  // such as 2.359999999 from incorrectly losing a whole unit.
+  const EPSILON = 1e-9;
+
+  for (const id of ["maxhead", "earbuds", "key", "refined"]) {
+    const value = PURE_TYPES[id].value;
+    const count = Math.floor((remaining + EPSILON) / value);
+
+    if (count > 0) {
+      breakdown[id] = count;
+      remaining -= count * value;
+      if (remaining < EPSILON) remaining = 0;
+    }
+  }
+
+  return { breakdown, remainder: Math.max(0, remaining) };
+}
+
+function formatPureBreakdown(breakdown) {
+
+  const parts = [];
+
+  ["maxhead", "earbuds", "key", "refined"].forEach(id => {
+    const amount = breakdown[id] || 0;
+    if (amount > 0) {
+      parts.push(`${amount} ${PURE_TYPES[id].name}`);
+    }
+  });
+
+  return parts.length ? parts.join(" + ") : "no whole pure units";
+}
+
+function convertInventoryItem(index) {
+
+  const item = inventory[index];
+  if (!item) return;
+
+  // Physical pure: convert one item directly into the matching pure balance.
+  if (isPureItem(item)) {
+    const pureId = getPureId(item);
+
+    if (!pureId) {
+      alert("This item could not be identified as a pure item.");
+      return;
+    }
+
+    inventory.splice(index, 1);
+    addPure(pureId, 1);
+    saveInventory();
+    renderInventory();
+    populateCoinflipDropdown();
+    updateBackpackValue();
+
+    alert(`Converted 1 ${PURE_TYPES[pureId].name} into your Pure balance.`);
+    return;
+  }
+
+  const itemValue = Number(item.price);
+
+  if (!Number.isFinite(itemValue) || itemValue <= 0) {
+    alert("This item has no valid coin value to convert.");
+    return;
+  }
+
+  // 25% conversion fee: only 75% of the item's normal price becomes pure value.
+  const convertibleValue = itemValue * PURE_CONVERSION_RATE;
+  const result = calculatePureBreakdown(convertibleValue);
+  const totalUnits = Object.values(result.breakdown).reduce((sum, n) => sum + n, 0);
+
+  if (totalUnits <= 0) {
+    alert(
+      `${item.name} is worth ${itemValue.toFixed(2)} coins, but its 75% conversion value is too small to make 1 Refined.`
+    );
+    return;
+  }
+
+  inventory.splice(index, 1);
+
+  Object.keys(result.breakdown).forEach(id => {
+    addPure(id, result.breakdown[id]);
+  });
+
+  // addPure saves/render balances; save the inventory after removal.
+  saveInventory();
+  renderInventory();
+  populateCoinflipDropdown();
+  updateBackpackValue();
+
+  const remainderText = result.remainder >= 0.005
+    ? `
+Unused sub-Refined remainder: ${result.remainder.toFixed(4)} coins.`
+    : "";
+
+  alert(
+    `Converted ${item.name}.\n\n` +
+    `Original value: ${itemValue.toFixed(2)} coins\n` +
+    `After 25% fee: ${convertibleValue.toFixed(2)} coins\n` +
+    `Received: ${formatPureBreakdown(result.breakdown)}${remainderText}`
+  );
+}
 
 
 // ===================== SELL ITEM =====================
@@ -751,7 +684,7 @@ function updateBackpackValue() {
 function sortInventoryByPriceDesc() {
 
   inventory.sort(
-    (a, b) => b.price - a.price
+    (a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)
   );
 
   saveInventory();
@@ -876,21 +809,9 @@ function populateCoinflipDropdown() {
     return;
   }
 
-  const tradableInventory = inventory.filter(item => !isPureItem(item));
-
-  if (tradableInventory.length === 0) {
-    select.innerHTML = `<option>No regular items available</option>`;
-    select.disabled = true;
-    return;
-  }
-
   select.disabled = false;
 
   inventory.forEach((item, index) => {
-
-    if (isPureItem(item)) {
-      return;
-    }
 
     const option =
       document.createElement("option");
@@ -1393,13 +1314,7 @@ function animateWinner(element) {
 
 function showWinner(item) {
 
-  const pureId = getPureId(item);
-
-  inventory.push(
-    pureId
-      ? { ...item, pureId }
-      : item
-  );
+  inventory.push(item);
 
   recentDrops.push(item);
 
@@ -1733,10 +1648,6 @@ function renderWager() {
   inventory.forEach(
     (item, index) => {
 
-      if (isPureItem(item)) {
-        return;
-      }
-
       const key =
         getKey(item, index);
 
@@ -1818,10 +1729,6 @@ function renderTarget() {
 
   allItems.forEach(
     (item, index) => {
-
-      if (isPureItem(item)) {
-        return;
-      }
 
       const key =
         getKey(item, index);
