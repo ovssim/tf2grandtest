@@ -1,4 +1,4 @@
-// ===================== GLOBAL STATE =====================
+/ ===================== GLOBAL STATE =====================
 let coins = parseFloat(localStorage.getItem("coins"));
 if (isNaN(coins) || coins < 0) coins = 20;
 
@@ -43,6 +43,97 @@ const PURE_STORAGE_KEY = "pures";
 
 let pures = loadPures();
 
+
+// ===================== SHARED POPUP SYSTEM =====================
+let activeSitePopup = null;
+
+function setupPopupSystem() {
+  if (document.getElementById("site-popup-root")) return;
+
+  const style = document.createElement("style");
+  style.id = "site-popup-style";
+  style.textContent = `
+    #site-popup-root {
+      position: fixed; inset: 0; z-index: 999999;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; box-sizing: border-box;
+      background: rgba(0,0,0,.72); backdrop-filter: blur(6px);
+    }
+    #site-popup-root.open { display: flex; }
+    #site-popup-box {
+      width: min(430px, 92vw); box-sizing: border-box;
+      padding: 24px; border-radius: 14px;
+      background: radial-gradient(circle at top, #24151d, #0b0b0f 72%);
+      border: 1px solid rgba(255, 0, 76, .8);
+      box-shadow: 0 0 12px rgba(255,0,76,.65), 0 0 35px rgba(255,0,76,.22), inset 0 0 24px rgba(255,0,76,.06);
+      color: #fff; text-align: center;
+    }
+    #site-popup-title { margin: 0 0 12px; color: #ff4d88; text-shadow: 0 0 8px rgba(255,0,76,.75); font-size: 24px; }
+    #site-popup-message { white-space: pre-line; line-height: 1.5; color: #eee; margin-bottom: 18px; }
+    #site-popup-input {
+      width: 100%; box-sizing: border-box; padding: 11px 12px; margin: 0 0 16px;
+      border-radius: 8px; border: 1px solid rgba(255,0,76,.7);
+      background: #0d0d12; color: #fff; outline: none;
+      box-shadow: 0 0 10px rgba(255,0,76,.18);
+    }
+    #site-popup-buttons { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    #site-popup-buttons button { min-width: 110px; }
+  `;
+  document.head.appendChild(style);
+
+  const root = document.createElement("div");
+  root.id = "site-popup-root";
+  root.innerHTML = `
+    <div id="site-popup-box" role="dialog" aria-modal="true">
+      <h2 id="site-popup-title"></h2>
+      <div id="site-popup-message"></div>
+      <input id="site-popup-input" style="display:none" autocomplete="off">
+      <div id="site-popup-buttons"></div>
+    </div>
+  `;
+  document.body.appendChild(root);
+  root.addEventListener("click", e => { if (e.target === root && activeSitePopup) activeSitePopup.cancel(); });
+}
+
+function siteAlert(message, title = "TF2GRAND") {
+  setupPopupSystem();
+  return new Promise(resolve => {
+    const root = document.getElementById("site-popup-root");
+    const titleEl = document.getElementById("site-popup-title");
+    const messageEl = document.getElementById("site-popup-message");
+    const input = document.getElementById("site-popup-input");
+    const buttons = document.getElementById("site-popup-buttons");
+    titleEl.textContent = title; messageEl.textContent = String(message);
+    input.style.display = "none"; buttons.innerHTML = "";
+    const ok = document.createElement("button"); ok.className = "theme-btn"; ok.textContent = "OK";
+    buttons.appendChild(ok); root.classList.add("open");
+    activeSitePopup = { cancel: () => { root.classList.remove("open"); activeSitePopup = null; resolve(); } };
+    ok.onclick = activeSitePopup.cancel; ok.focus();
+  });
+}
+
+function sitePrompt(message, defaultValue = "", title = "TF2GRAND") {
+  setupPopupSystem();
+  return new Promise(resolve => {
+    const root = document.getElementById("site-popup-root");
+    const titleEl = document.getElementById("site-popup-title");
+    const messageEl = document.getElementById("site-popup-message");
+    const input = document.getElementById("site-popup-input");
+    const buttons = document.getElementById("site-popup-buttons");
+    titleEl.textContent = title; messageEl.textContent = String(message);
+    input.style.display = "block"; input.value = defaultValue; input.type = /passkey|key/i.test(title + " " + message) ? "password" : "text";
+    buttons.innerHTML = "";
+    const cancel = document.createElement("button"); cancel.className = "theme-btn"; cancel.textContent = "Cancel";
+    const ok = document.createElement("button"); ok.className = "theme-btn"; ok.textContent = "Confirm";
+    buttons.append(cancel, ok); root.classList.add("open");
+    const finish = value => { root.classList.remove("open"); activeSitePopup = null; resolve(value); };
+    activeSitePopup = { cancel: () => finish(null) };
+    cancel.onclick = () => finish(null); ok.onclick = () => finish(input.value);
+    input.onkeydown = e => { if (e.key === "Enter") finish(input.value); if (e.key === "Escape") finish(null); };
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+  });
+}
+
 // ===================== ADMIN PASSWORD =====================
 let adminMode = false;
 const ADMIN_PASSWORD = "C";
@@ -63,6 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     sortBtn.onclick = sortInventoryByPriceDesc;
   }
 
+  setupPopupSystem();
   updateCoins();
   setupPureSystem();
   renderPureBalances();
@@ -149,16 +241,16 @@ function setRandomCaseNeonColor() {
 
 // ===================== ADMIN PASSWORD CHECK =====================
 
-function checkAdminPassword() {
+async function checkAdminPassword() {
 
-  const password = prompt("Enter Key:");
+  const password = await sitePrompt("Enter Key:", "", "Trading Passkey");
 
   if (password === null) {
     return false;
   }
 
   if (password !== ADMIN_PASSWORD) {
-    alert("Incorrect Trading Passkey.");
+    siteAlert("Incorrect Trading Passkey.");
     return false;
   }
 
@@ -168,17 +260,15 @@ function checkAdminPassword() {
 
 // ===================== ADD COINS =====================
 
-function addCoinsAdmin() {
+async function addCoinsAdmin() {
 
   // Ask for password first
-  if (!checkAdminPassword()) {
+  if (!(await checkAdminPassword())) {
     return;
   }
 
   // Ask how many coins
-  const amountInput = prompt(
-    "Deposit Module"
-  );
+  const amountInput = await sitePrompt("How many coins would you like to deposit?", "", "Deposit");
 
   // Cancel
   if (amountInput === null) {
@@ -189,7 +279,7 @@ function addCoinsAdmin() {
 
   // Invalid amount
   if (!isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid amount greater than 0.");
+    siteAlert("Please enter a valid amount greater than 0.");
     return;
   }
 
@@ -198,23 +288,21 @@ function addCoinsAdmin() {
 
   updateCoins();
 
-  alert(`Added ${amount.toFixed(2)} coins.`);
+  siteAlert(`Added ${amount.toFixed(2)} coins.`);
 }
 
 
 // ===================== REMOVE COINS =====================
 
-function removeCoinsAdmin() {
+async function removeCoinsAdmin() {
 
   // Ask for password first
-  if (!checkAdminPassword()) {
+  if (!(await checkAdminPassword())) {
     return;
   }
 
   // Ask how many coins
-  const amountInput = prompt(
-    "Withdraw Module"
-  );
+  const amountInput = await sitePrompt("How many coins would you like to withdraw?", "", "Withdraw");
 
   // Cancel
   if (amountInput === null) {
@@ -225,13 +313,13 @@ function removeCoinsAdmin() {
 
   // Invalid amount
   if (!isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid amount greater than 0.");
+    siteAlert("Please enter a valid amount greater than 0.");
     return;
   }
 
   // Prevent going below zero
   if (amount > coins) {
-    alert(
+    siteAlert(
       `You cannot withdraw ${amount.toFixed(2)} coins.\n\n` +
       `You currently have ${coins.toFixed(2)} coins.`
     );
@@ -244,7 +332,7 @@ function removeCoinsAdmin() {
 
   updateCoins();
 
-  alert(`Removed ${amount.toFixed(2)} coins.`);
+  siteAlert(`Removed ${amount.toFixed(2)} coins.`);
 }
 
 
@@ -449,32 +537,29 @@ function addPure(id, amount) {
   renderPureBalances();
 }
 
-function withdrawPure(id) {
+async function withdrawPure(id) {
 
   const pure = PURE_TYPES[id];
   const available = Number(pures[id]) || 0;
 
   if (!pure || available <= 0) {
-    alert(`You do not have any ${pure ? pure.name : "pure"}.`);
+    siteAlert(`You do not have any ${pure ? pure.name : "pure"}.`);
     return;
   }
 
-  const input = prompt(
-    `How many ${pure.name} would you like to take out?`,
-    String(available)
-  );
+  const input = await sitePrompt(`How many ${pure.name} would you like to take out?`, String(available), "Pure Withdraw");
 
   if (input === null) return;
 
   const amount = Math.floor(Number(input));
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    alert("Please enter a valid whole number.");
+    siteAlert("Please enter a valid whole number.");
     return;
   }
 
   if (amount > available) {
-    alert(`You only have ${available} ${pure.name}.`);
+    siteAlert(`You only have ${available} ${pure.name}.`);
     return;
   }
 
@@ -499,36 +584,28 @@ function withdrawPure(id) {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  alert(`Took out ${amount} ${pure.name}.`);
+  siteAlert(`Took out ${amount} ${pure.name}.`);
 }
 
 function calculatePureBreakdown(coinValue) {
 
-  let remaining = Math.max(0, Number(coinValue) || 0);
+  // Work entirely in hundredths of a coin so JavaScript floating-point
+  // rounding can never turn 1.59 into 1.589999... and lose Refined.
+  let remainingHundredths = Math.max(0, Math.round((Number(coinValue) || 0) * 100));
 
-  const breakdown = {
-    maxhead: 0,
-    earbuds: 0,
-    key: 0,
-    refined: 0
-  };
-
-  // Largest to smallest. A tiny epsilon prevents floating-point values
-  // such as 2.359999999 from incorrectly losing a whole unit.
-  const EPSILON = 1e-9;
+  const breakdown = { maxhead: 0, earbuds: 0, key: 0, refined: 0 };
+  const values = { maxhead: 7256, earbuds: 1872, key: 236, refined: 3 };
 
   for (const id of ["maxhead", "earbuds", "key", "refined"]) {
-    const value = PURE_TYPES[id].value;
-    const count = Math.floor((remaining + EPSILON) / value);
-
-    if (count > 0) {
-      breakdown[id] = count;
-      remaining -= count * value;
-      if (remaining < EPSILON) remaining = 0;
-    }
+    const count = Math.floor(remainingHundredths / values[id]);
+    breakdown[id] = count;
+    remainingHundredths -= count * values[id];
   }
 
-  return { breakdown, remainder: Math.max(0, remaining) };
+  return {
+    breakdown,
+    remainder: remainingHundredths / 100
+  };
 }
 
 function formatPureBreakdown(breakdown) {
@@ -555,7 +632,7 @@ function convertInventoryItem(index) {
     const pureId = getPureId(item);
 
     if (!pureId) {
-      alert("This item could not be identified as a pure item.");
+      siteAlert("This item could not be identified as a pure item.");
       return;
     }
 
@@ -566,14 +643,14 @@ function convertInventoryItem(index) {
     populateCoinflipDropdown();
     updateBackpackValue();
 
-    alert(`Converted 1 ${PURE_TYPES[pureId].name} into your Pure balance.`);
+    siteAlert(`Converted 1 ${PURE_TYPES[pureId].name} into your Pure balance.`);
     return;
   }
 
   const itemValue = Number(item.price);
 
   if (!Number.isFinite(itemValue) || itemValue <= 0) {
-    alert("This item has no valid coin value to convert.");
+    siteAlert("This item has no valid coin value to convert.");
     return;
   }
 
@@ -583,7 +660,7 @@ function convertInventoryItem(index) {
   const totalUnits = Object.values(result.breakdown).reduce((sum, n) => sum + n, 0);
 
   if (totalUnits <= 0) {
-    alert(
+    siteAlert(
       `${item.name} is worth ${itemValue.toFixed(2)} coins, but its 75% conversion value is too small to make 1 Refined.`
     );
     return;
@@ -606,7 +683,7 @@ function convertInventoryItem(index) {
 Unused sub-Refined remainder: ${result.remainder.toFixed(4)} coins.`
     : "";
 
-  alert(
+  siteAlert(
     `Converted ${item.name}.\n\n` +
     `Original value: ${itemValue.toFixed(2)} coins\n` +
     `After 25% fee: ${convertibleValue.toFixed(2)} coins\n` +
@@ -636,7 +713,7 @@ function sellItem(index) {
 function sellAllItems() {
 
   if (inventory.length === 0) {
-    alert("Backpack empty.");
+    siteAlert("Backpack empty.");
     return;
   }
 
@@ -655,7 +732,7 @@ function sellAllItems() {
   populateCoinflipDropdown();
   updateBackpackValue();
 
-  alert(
+  siteAlert(
     `Scrapped Backpack for ${total.toFixed(2)} coins.`
   );
 }
@@ -882,7 +959,7 @@ function coinflipItem(index) {
             ...item
           });
 
-          alert(
+          siteAlert(
             `You won another ${item.name} 🎉!`
           );
 
@@ -890,7 +967,7 @@ function coinflipItem(index) {
 
           inventory.splice(index, 1);
 
-          alert(
+          siteAlert(
             `You lost, your ${item.name} was destroyed.`
           );
         }
@@ -1063,7 +1140,7 @@ function openCases(count) {
 
     if (coins < currentCase.price) {
 
-      alert("Not enough coins.");
+      siteAlert("Not enough coins.");
 
       isSpinning = false;
 
@@ -1350,7 +1427,7 @@ function showWinner(item) {
 
 // ===================== ADMIN GIVE ITEMS =====================
 
-function adminGiveItem() {
+async function adminGiveItem() {
 
   const panel =
     document.getElementById(
@@ -1369,10 +1446,7 @@ function adminGiveItem() {
   // Password
   if (!adminMode) {
 
-    const password =
-      prompt(
-        "Enter Trading passkey:"
-      );
+    const password = await sitePrompt("Enter Trading passkey:", "", "Trading Passkey");
 
     if (password === null) {
       return;
@@ -1380,7 +1454,7 @@ function adminGiveItem() {
 
     if (password !== ADMIN_PASSWORD) {
 
-      alert(
+      siteAlert(
         "Incorrect Trading Passkey."
       );
 
@@ -1389,7 +1463,7 @@ function adminGiveItem() {
 
     adminMode = true;
 
-    alert(
+    siteAlert(
       "Trading Mode Enabled."
     );
   }
@@ -1442,7 +1516,7 @@ function adminGiveItem() {
 
         if (coins < item.price) {
 
-          alert(
+          siteAlert(
             "Not enough coins."
           );
 
@@ -1465,7 +1539,7 @@ function adminGiveItem() {
 
         updateBackpackValue();
 
-        alert(
+        siteAlert(
           `Traded ${item.name} for ${item.price.toFixed(2)} coins`
         );
       };
