@@ -1,79 +1,75 @@
 // ===================== GLOBAL STATE =====================
-let coins = parseFloat(localStorage.getItem("coins"));
-if (isNaN(coins) || coins < 0) coins = 20;
 
-let inventory = JSON.parse(localStorage.getItem("inventory")) || [];
-let recentDrops = JSON.parse(localStorage.getItem("recentDrops")) || [];
+let coins = parseFloat(localStorage.getItem("coins"));
+
+if (isNaN(coins) || coins < 0) {
+  coins = 20;
+}
+
+let inventory =
+  JSON.parse(localStorage.getItem("inventory")) || [];
+
+let recentDrops =
+  JSON.parse(localStorage.getItem("recentDrops")) || [];
+
 let cases = [];
 let currentCase = null;
 
 let isSpinning = false;
 
+
 // ===================== PURE SYSTEM =====================
-// Pure values use the site's existing coin values.
-// tier = position in the pure upgrade hierarchy.
-//
-// 0 = Refined
-// 1 = Key
-// 2 = Bill's Hat
-// 3 = Earbuds
-// 4 = Max's Severed Head
 
 const PURE_TYPES = {
-
-  refined: {
-    id: "refined",
-    name: "Refined Metal",
-    value: 0.03,
-    image: "images/items/refined.png",
-    tier: 0
-  },
-
-  key: {
-    id: "key",
-    name: "Mann Co. Supply Crate Key",
-    value: 2.36,
-    image: "images/items/key.png",
-    tier: 1
-  },
-
-  bills: {
-    id: "bills",
-    name: "Bill's Hat",
-    value: 8.75,
-    image: "images/items/bills.png",
-    tier: 2
+  maxhead: {
+    id: "maxhead",
+    name: "Max's Severed Head",
+    value: 72.56,
+    image: "images/items/maxhead.png"
   },
 
   earbuds: {
     id: "earbuds",
     name: "Earbuds",
     value: 18.72,
-    image: "images/items/earbuds.png",
-    tier: 3
+    image: "images/items/earbuds.png"
   },
 
-  maxhead: {
-    id: "maxhead",
-    name: "Max's Severed Head",
-    value: 72.56,
-    image: "images/items/maxhead.png",
-    tier: 4
+  bills: {
+    id: "bills",
+    name: "Bill's Hat",
+    value: 8.75,
+    image: "images/items/bills.png"
+  },
+
+  key: {
+    id: "key",
+    name: "Mann Co. Supply Crate Key",
+    value: 2.36,
+    image: "images/items/key.png"
+  },
+
+  refined: {
+    id: "refined",
+    name: "Refined Metal",
+    value: 0.03,
+    image: "images/items/refined.png"
   }
 };
 
 const PURE_CONVERSION_RATE = 0.75;
-const PURE_STORAGE_KEY = "pures";
 
+const PURE_STORAGE_KEY = "pures";
 const PURE_REMAINDER_STORAGE_KEY = "pureRemainder";
+
 let pureRemainder = loadPureRemainder();
 
 
 // ===================== SHARED POPUP SYSTEM =====================
+
 let activeSitePopup = null;
 
 function setupPopupSystem() {
-
   if (document.getElementById("site-popup-root")) {
     return;
   }
@@ -88,7 +84,8 @@ function setupPopupSystem() {
       <button
         id="site-popup-close"
         type="button"
-        aria-label="Close">
+        aria-label="Close"
+      >
         ×
       </button>
 
@@ -100,7 +97,8 @@ function setupPopupSystem() {
 
       <input
         id="site-popup-input"
-        autocomplete="off">
+        autocomplete="off"
+      >
 
       <div id="site-popup-buttons"></div>
 
@@ -110,27 +108,25 @@ function setupPopupSystem() {
   document.body.appendChild(root);
 
   root.addEventListener("click", event => {
-
     if (
       event.target === root &&
       activeSitePopup
     ) {
-
       activeSitePopup.cancel();
     }
   });
 }
 
 
+// ===================== ALERT POPUP =====================
+
 function siteAlert(
   message,
   title = "TF2GRAND"
 ) {
-
   setupPopupSystem();
 
   return new Promise(resolve => {
-
     const root =
       document.getElementById(
         "site-popup-root"
@@ -161,55 +157,36 @@ function siteAlert(
         "site-popup-close"
       );
 
-    titleEl.textContent =
-      title;
-
+    titleEl.textContent = title;
     messageEl.textContent =
       String(message);
 
-    input.style.display =
-      "none";
+    input.style.display = "none";
 
-    buttons.innerHTML =
-      "";
+    buttons.innerHTML = "";
 
     const finish = () => {
+      root.classList.remove("open");
 
-      root.classList.remove(
-        "open"
-      );
-
-      activeSitePopup =
-        null;
+      activeSitePopup = null;
 
       resolve();
     };
 
     const ok =
-      document.createElement(
-        "button"
-      );
+      document.createElement("button");
 
-    ok.className =
-      "theme-btn";
+    ok.className = "theme-btn";
+    ok.type = "button";
+    ok.textContent = "OK";
 
-    ok.type =
-      "button";
-
-    ok.textContent =
-      "OK";
-
-    ok.onclick =
-      finish;
+    ok.onclick = finish;
 
     buttons.appendChild(ok);
 
-    close.onclick =
-      finish;
+    close.onclick = finish;
 
-    root.classList.add(
-      "open"
-    );
+    root.classList.add("open");
 
     ok.focus();
 
@@ -220,16 +197,16 @@ function siteAlert(
 }
 
 
+// ===================== PROMPT POPUP =====================
+
 function sitePrompt(
   message,
   defaultValue = "",
   title = "TF2GRAND"
 ) {
-
   setupPopupSystem();
 
   return new Promise(resolve => {
-
     const root =
       document.getElementById(
         "site-popup-root"
@@ -260,17 +237,14 @@ function sitePrompt(
         "site-popup-close"
       );
 
-    titleEl.textContent =
-      title;
+    titleEl.textContent = title;
 
     messageEl.textContent =
       String(message);
 
-    input.style.display =
-      "block";
+    input.style.display = "block";
 
-    input.value =
-      defaultValue;
+    input.value = defaultValue;
 
     input.type =
       /passkey|key/i.test(
@@ -279,105 +253,80 @@ function sitePrompt(
         ? "password"
         : "text";
 
-    buttons.innerHTML =
-      "";
+    buttons.innerHTML = "";
 
-    const finish =
-      value => {
+    const finish = value => {
+      root.classList.remove("open");
 
-        root.classList.remove(
-          "open"
-        );
+      activeSitePopup = null;
 
-        activeSitePopup =
-          null;
-
-        resolve(value);
-      };
+      resolve(value);
+    };
 
     const cancel =
-      document.createElement(
-        "button"
-      );
+      document.createElement("button");
 
-    cancel.className =
+    cancel.className = "theme-btn";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+
+    cancel.onclick = () =>
+      finish(null);
+
+    const confirmButton =
+      document.createElement("button");
+
+    confirmButton.className =
       "theme-btn";
 
-    cancel.type =
-      "button";
-
-    cancel.textContent =
-      "Cancel";
-
-    cancel.onclick =
-      () => finish(null);
-
-    const confirm =
-      document.createElement(
-        "button"
-      );
-
-    confirm.className =
-      "theme-btn";
-
-    confirm.type =
-      "button";
-
-    confirm.textContent =
+    confirmButton.type = "button";
+    confirmButton.textContent =
       "Confirm";
 
-    confirm.onclick =
-      () => finish(input.value);
+    confirmButton.onclick = () =>
+      finish(input.value);
 
     buttons.append(
       cancel,
-      confirm
+      confirmButton
     );
 
-    close.onclick =
-      () => finish(null);
+    close.onclick = () =>
+      finish(null);
 
-    root.classList.add(
-      "open"
-    );
+    root.classList.add("open");
 
     activeSitePopup = {
       cancel: () => finish(null)
     };
 
-    input.onkeydown =
-      event => {
+    input.onkeydown = event => {
+      if (event.key === "Enter") {
+        finish(input.value);
+      }
 
-        if (event.key === "Enter") {
-          finish(input.value);
-        }
-
-        if (event.key === "Escape") {
-          finish(null);
-        }
-      };
+      if (event.key === "Escape") {
+        finish(null);
+      }
+    };
 
     setTimeout(() => {
-
       input.focus();
       input.select();
-
     }, 0);
   });
 }
 
 
-// ===================== PURE CONFIRM POPUP =====================
+// ===================== CONFIRM POPUP =====================
 
 function siteConfirm(
   message,
   title = "TF2GRAND"
 ) {
-
   setupPopupSystem();
 
   return new Promise(resolve => {
-
     const root =
       document.getElementById(
         "site-popup-root"
@@ -408,247 +357,281 @@ function siteConfirm(
         "site-popup-close"
       );
 
-    titleEl.textContent =
-      title;
+    titleEl.textContent = title;
 
     messageEl.textContent =
       String(message);
 
-    input.style.display =
-      "none";
+    input.style.display = "none";
 
-    buttons.innerHTML =
-      "";
+    buttons.innerHTML = "";
 
-    const finish =
-      value => {
+    const finish = value => {
+      root.classList.remove("open");
 
-        root.classList.remove(
-          "open"
-        );
+      activeSitePopup = null;
 
-        activeSitePopup =
-          null;
-
-        resolve(value);
-      };
+      resolve(value);
+    };
 
     const cancel =
-      document.createElement(
-        "button"
-      );
+      document.createElement("button");
 
-    cancel.className =
+    cancel.className = "theme-btn";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+
+    cancel.onclick = () =>
+      finish(false);
+
+    const confirmButton =
+      document.createElement("button");
+
+    confirmButton.className =
       "theme-btn";
 
-    cancel.type =
-      "button";
-
-    cancel.textContent =
-      "Cancel";
-
-    cancel.onclick =
-      () => finish(false);
-
-    const confirm =
-      document.createElement(
-        "button"
-      );
-
-    confirm.className =
-      "theme-btn";
-
-    confirm.type =
-      "button";
-
-    confirm.textContent =
+    confirmButton.type = "button";
+    confirmButton.textContent =
       "Craft";
 
-    confirm.onclick =
-      () => finish(true);
+    confirmButton.onclick = () =>
+      finish(true);
 
     buttons.append(
       cancel,
-      confirm
+      confirmButton
     );
 
-    close.onclick =
-      () => finish(false);
+    close.onclick = () =>
+      finish(false);
 
-    root.classList.add(
-      "open"
-    );
+    root.classList.add("open");
 
     activeSitePopup = {
       cancel: () => finish(false)
     };
 
-    confirm.focus();
+    confirmButton.focus();
   });
 }
 
+
+// ===================== PURE STORAGE =====================
 
 let pures = loadPures();
 
 
 // ===================== ADMIN PASSWORD =====================
+
 let adminMode = false;
+
 const ADMIN_PASSWORD = "C";
 
 
 // ===================== INIT =====================
-document.addEventListener("DOMContentLoaded", () => {
 
-  // Admin item button
-  const adminGiveBtn =
-    document.getElementById(
-      "admin-give-btn"
-    );
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
 
-  if (adminGiveBtn) {
-    adminGiveBtn.onclick =
-      adminGiveItem;
-  }
-
-  // Sort inventory
-  const sortBtn =
-    document.getElementById(
-      "sort-inv-btn"
-    );
-
-  if (sortBtn) {
-    sortBtn.onclick =
-      sortInventoryByPriceDesc;
-  }
-
-  setupPopupSystem();
-  updateCoins();
-  setupPureSystem();
-  renderPureBalances();
-  renderInventory();
-  renderTopDrops();
-  loadCases();
-  populateCoinflipDropdown();
-  updateBackpackValue();
-
-  // Buttons
-  const sellAllBtn =
-    document.getElementById(
-      "sell-all-btn"
-    );
-
-  if (sellAllBtn) {
-    sellAllBtn.onclick =
-      sellAllItems;
-  }
-
-  // ===================== ADD COINS =====================
-  const addCoinsBtn =
-    document.getElementById(
-      "add-coins-btn"
-    );
-
-  if (addCoinsBtn) {
-    addCoinsBtn.onclick =
-      addCoinsAdmin;
-  }
-
-  // ===================== REMOVE COINS =====================
-  const removeCoinsBtn =
-    document.getElementById(
-      "remove-coins-btn"
-    );
-
-  if (removeCoinsBtn) {
-    removeCoinsBtn.onclick =
-      removeCoinsAdmin;
-  }
-
-  // ===================== COINFLIP =====================
-  const coinflipBtn =
-    document.getElementById(
-      "coinflip-btn"
-    );
-
-  if (coinflipBtn) {
-
-    coinflipBtn.onclick = () => {
-
-      const select =
-        document.getElementById(
-          "coinflip-select"
-        );
-
-      const index =
-        parseInt(select.value);
-
-      if (!isNaN(index)) {
-        coinflipItem(index);
-      }
-    };
-  }
-
-
-  function setRandomCaseNeonColor() {
-
-    const display =
+    // Admin item button
+    const adminGiveBtn =
       document.getElementById(
-        "case-select-display"
+        "admin-give-btn"
       );
 
-    if (!display) return;
+    if (adminGiveBtn) {
+      adminGiveBtn.onclick =
+        adminGiveItem;
+    }
 
-    const colors = [
-      "#ff004c",
-      "#ff4d00",
-      "#ffd000",
-      "#00ff66",
-      "#00e5ff",
-      "#0088ff",
-      "#7a00ff",
-      "#ff00ff",
-      "#ff66cc",
-      "#00ffcc"
-    ];
 
-    const randomColor =
-      colors[
-        Math.floor(
-          Math.random() *
-          colors.length
-        )
+    // Sort inventory
+    const sortBtn =
+      document.getElementById(
+        "sort-inv-btn"
+      );
+
+    if (sortBtn) {
+      sortBtn.onclick =
+        sortInventoryByPriceDesc;
+    }
+
+
+    setupPopupSystem();
+
+    updateCoins();
+
+    setupPureSystem();
+
+    renderPureBalances();
+
+    renderInventory();
+
+    renderTopDrops();
+
+    loadCases();
+
+    populateCoinflipDropdown();
+
+    updateBackpackValue();
+
+
+    // =====================
+    // SELL ALL
+    // =====================
+
+    const sellAllBtn =
+      document.getElementById(
+        "sell-all-btn"
+      );
+
+    if (sellAllBtn) {
+      sellAllBtn.onclick =
+        sellAllItems;
+    }
+
+
+    // =====================
+    // ADD COINS
+    // =====================
+
+    const addCoinsBtn =
+      document.getElementById(
+        "add-coins-btn"
+      );
+
+    if (addCoinsBtn) {
+      addCoinsBtn.onclick =
+        addCoinsAdmin;
+    }
+
+
+    // =====================
+    // REMOVE COINS
+    // =====================
+
+    const removeCoinsBtn =
+      document.getElementById(
+        "remove-coins-btn"
+      );
+
+    if (removeCoinsBtn) {
+      removeCoinsBtn.onclick =
+        removeCoinsAdmin;
+    }
+
+
+    // =====================
+    // COINFLIP
+    // =====================
+
+    const coinflipBtn =
+      document.getElementById(
+        "coinflip-btn"
+      );
+
+    if (coinflipBtn) {
+      coinflipBtn.onclick = () => {
+
+        const select =
+          document.getElementById(
+            "coinflip-select"
+          );
+
+        if (!select) {
+          return;
+        }
+
+        const index =
+          parseInt(select.value);
+
+        if (!isNaN(index)) {
+          coinflipItem(index);
+        }
+      };
+    }
+
+
+    // =====================
+    // RANDOM CASE COLOR
+    // =====================
+
+    function setRandomCaseNeonColor() {
+      const display =
+        document.getElementById(
+          "case-select-display"
+        );
+
+      if (!display) {
+        return;
+      }
+
+      const colors = [
+        "#ff004c",
+        "#ff4d00",
+        "#ffd000",
+        "#00ff66",
+        "#00e5ff",
+        "#0088ff",
+        "#7a00ff",
+        "#ff00ff",
+        "#ff66cc",
+        "#00ffcc"
       ];
 
-    display.style.setProperty(
-      "--case-neon-color",
-      randomColor
-    );
+      const randomColor =
+        colors[
+          Math.floor(
+            Math.random() *
+            colors.length
+          )
+        ];
+
+      display.style.setProperty(
+        "--case-neon-color",
+        randomColor
+      );
+    }
+
+
+    // =====================
+    // OPEN CASE
+    // =====================
+
+    const openBtn =
+      document.getElementById(
+        "open-btn"
+      );
+
+    if (openBtn) {
+      openBtn.onclick = () =>
+        openCases(1);
+    }
+
+
+    // =====================
+    // SHOW CASE ITEMS
+    // =====================
+
+    const showCaseItemsBtn =
+      document.getElementById(
+        "show-case-items-btn"
+      );
+
+    if (showCaseItemsBtn) {
+      showCaseItemsBtn.onclick =
+        toggleCaseItems;
+    }
+
+
+    // =====================
+    // UPGRADE
+    // =====================
+
+    setupUpgradeButton();
   }
-
-
-  // ===================== OPEN CASE =====================
-  const openBtn =
-    document.getElementById(
-      "open-btn"
-    );
-
-  if (openBtn) {
-    openBtn.onclick =
-      () => openCases(1);
-  }
-
-
-  // ===================== SHOW CASE ITEMS =====================
-  const showCaseItemsBtn =
-    document.getElementById(
-      "show-case-items-btn"
-    );
-
-  if (showCaseItemsBtn) {
-    showCaseItemsBtn.onclick =
-      toggleCaseItems;
-  }
-});
+);
 
 
 // ===================== ADMIN PASSWORD CHECK =====================
@@ -666,8 +649,9 @@ async function checkAdminPassword() {
     return false;
   }
 
-  if (password !== ADMIN_PASSWORD) {
-
+  if (
+    password !== ADMIN_PASSWORD
+  ) {
     siteAlert(
       "Incorrect Trading Passkey."
     );
@@ -683,7 +667,9 @@ async function checkAdminPassword() {
 
 async function addCoinsAdmin() {
 
-  if (!(await checkAdminPassword())) {
+  if (
+    !(await checkAdminPassword())
+  ) {
     return;
   }
 
@@ -705,7 +691,6 @@ async function addCoinsAdmin() {
     !isFinite(amount) ||
     amount <= 0
   ) {
-
     siteAlert(
       "Please enter a valid amount greater than 0."
     );
@@ -727,7 +712,9 @@ async function addCoinsAdmin() {
 
 async function removeCoinsAdmin() {
 
-  if (!(await checkAdminPassword())) {
+  if (
+    !(await checkAdminPassword())
+  ) {
     return;
   }
 
@@ -749,7 +736,6 @@ async function removeCoinsAdmin() {
     !isFinite(amount) ||
     amount <= 0
   ) {
-
     siteAlert(
       "Please enter a valid amount greater than 0."
     );
@@ -758,7 +744,6 @@ async function removeCoinsAdmin() {
   }
 
   if (amount > coins) {
-
     siteAlert(
       `You cannot withdraw ${amount.toFixed(2)} coins.\n\n` +
       `You currently have ${coins.toFixed(2)} coins.`
@@ -782,12 +767,9 @@ async function removeCoinsAdmin() {
 function updateCoins() {
 
   const coinsElement =
-    document.getElementById(
-      "coins"
-    );
+    document.getElementById("coins");
 
   if (coinsElement) {
-
     coinsElement.textContent =
       `⛃: ${coins.toFixed(2)}`;
   }
@@ -826,21 +808,21 @@ function renderInventory() {
     return;
   }
 
-  container.innerHTML =
-    "";
+  container.innerHTML = "";
 
   inventory.forEach(
     (item, index) => {
 
       const div =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
       div.className =
-        `inv-item ${String(
-          item.rarity || "common"
-        ).toLowerCase()}`;
+        `inv-item ${
+          String(
+            item.rarity ||
+            "common"
+          ).toLowerCase()
+        }`;
 
       const isPure =
         isPureItem(item);
@@ -850,8 +832,12 @@ function renderInventory() {
 
       div.innerHTML = `
         <img src="${item.image || ""}">
+
         <p>${item.name}</p>
-        <small>${price.toFixed(2)} coins</small>
+
+        <small>
+          ${price.toFixed(2)} coins
+        </small>
 
         ${
           isPure
@@ -870,21 +856,19 @@ function renderInventory() {
         );
 
       if (sellButton) {
-
-        sellButton.onclick =
-          () => {
-
-            sellItem(index);
-          };
+        sellButton.onclick = () =>
+          sellItem(index);
       }
 
-      div.querySelector(
-        ".convert-btn"
-      ).onclick =
-        () => {
+      const convertButton =
+        div.querySelector(
+          ".convert-btn"
+        );
 
+      if (convertButton) {
+        convertButton.onclick = () =>
           convertInventoryItem(index);
-        };
+      }
 
       if (isPure) {
         div.classList.add(
@@ -898,7 +882,12 @@ function renderInventory() {
 }
 
 
-// ===================== PURE SYSTEM =====================
+// =========================================================
+// PURE SYSTEM
+// =========================================================
+
+
+// ===================== LOAD PURES =====================
 
 function loadPures() {
 
@@ -909,24 +898,23 @@ function loadPures() {
       ) || "null"
     );
 
-  const result = {};
-
-  Object.keys(PURE_TYPES)
-    .forEach(id => {
-
-      result[id] = 0;
-    });
+  const result = {
+    maxhead: 0,
+    earbuds: 0,
+    bills: 0,
+    key: 0,
+    refined: 0
+  };
 
   if (
     !saved ||
     typeof saved !== "object"
   ) {
-
     return result;
   }
 
-  Object.keys(result)
-    .forEach(id => {
+  Object.keys(result).forEach(
+    id => {
 
       const amount =
         Number(saved[id]);
@@ -936,7 +924,8 @@ function loadPures() {
         amount > 0
           ? Math.floor(amount)
           : 0;
-    });
+    }
+  );
 
   return result;
 }
@@ -951,22 +940,24 @@ function savePures() {
 }
 
 
+// ===================== PURE IDENTIFICATION =====================
+
 function isPureItem(item) {
 
-  if (!item) return false;
+  if (!item) {
+    return false;
+  }
 
   if (
     item.isPure === true &&
-    item.pureId
+    item.pureId &&
+    PURE_TYPES[item.pureId]
   ) {
-
     return true;
   }
 
   const name =
-    String(
-      item.name || ""
-    )
+    String(item.name || "")
       .trim()
       .toLowerCase();
 
@@ -990,14 +981,11 @@ function getPureId(item) {
     item.pureId &&
     PURE_TYPES[item.pureId]
   ) {
-
     return item.pureId;
   }
 
   const name =
-    String(
-      item.name || ""
-    )
+    String(item.name || "")
       .trim()
       .toLowerCase();
 
@@ -1016,6 +1004,8 @@ function getPureId(item) {
 }
 
 
+// ===================== PURE UI =====================
+
 function setupPureSystem() {
 
   let section =
@@ -1025,16 +1015,15 @@ function setupPureSystem() {
 
   if (!section) {
 
-    const inventory =
+    const inventoryElement =
       document.getElementById(
         "inventory"
       );
 
     if (
-      !inventory ||
-      !inventory.parentElement
+      !inventoryElement ||
+      !inventoryElement.parentElement
     ) {
-
       return;
     }
 
@@ -1048,19 +1037,16 @@ function setupPureSystem() {
 
     section.innerHTML = `
       <div id="pure-header">
-
         <h2>Pure</h2>
 
         <div id="pure-balances"></div>
-
       </div>
     `;
 
-    inventory.parentElement
-      .insertBefore(
-        section,
-        inventory
-      );
+    inventoryElement.parentElement.insertBefore(
+      section,
+      inventoryElement
+    );
   }
 }
 
@@ -1078,98 +1064,102 @@ function renderPureBalances() {
     return;
   }
 
-  container.innerHTML =
-    "";
+  container.innerHTML = "";
 
-  const pureList =
-    Object.values(
-      PURE_TYPES
-    )
-      .sort(
-        (a, b) =>
-          a.tier - b.tier
+  const order = [
+    "maxhead",
+    "earbuds",
+    "bills",
+    "key",
+    "refined"
+  ];
+
+  order.forEach(id => {
+
+    const pure =
+      PURE_TYPES[id];
+
+    if (!pure) {
+      return;
+    }
+
+    const amount =
+      Number(pures[id]) || 0;
+
+    const entry =
+      document.createElement(
+        "div"
       );
 
-  pureList.forEach(
-    pure => {
+    entry.className =
+      "pure-balance-entry";
 
-      const amount =
-        Number(
-          pures[pure.id]
-        ) || 0;
+    entry.innerHTML = `
+      <img
+        src="${pure.image}"
+        alt="${pure.name}"
+      >
 
-      const entry =
-        document.createElement(
-          "div"
-        );
+      <span>
+        ${amount}
+      </span>
 
-      entry.className =
-        "pure-balance-entry";
+      <button
+        class="theme-btn pure-withdraw-btn"
+        type="button"
+      >
+        Take Out
+      </button>
 
-      const nextPure =
-        getNextPure(
-          pure.id
-        );
+      <button
+        class="theme-btn pure-craft-btn"
+        type="button"
+      >
+        Craft ${getNextPureName(id)}
+      </button>
+    `;
 
-      entry.innerHTML = `
-        <img
-          src="${pure.image}"
-          alt="${pure.name}">
-
-        <span>
-          ${amount}
-        </span>
-
-        <button
-          class="theme-btn pure-withdraw-btn"
-          type="button">
-          Take Out
-        </button>
-
-        ${
-          nextPure
-            ? `
-              <button
-                class="theme-btn pure-craft-btn"
-                type="button">
-                Craft ${nextPure.name}
-              </button>
-            `
-            : ""
-        }
-      `;
-
+    const withdrawButton =
       entry.querySelector(
         ".pure-withdraw-btn"
-      ).onclick =
-        () => {
-
-          withdrawPure(
-            pure.id
-          );
-        };
-
-      if (nextPure) {
-
-        entry.querySelector(
-          ".pure-craft-btn"
-        ).onclick =
-          () => {
-
-            craftPure(
-              pure.id
-            );
-          };
-      }
-
-      container.appendChild(
-        entry
       );
+
+    if (withdrawButton) {
+      withdrawButton.onclick =
+        () => withdrawPure(id);
     }
-  );
+
+    const craftButton =
+      entry.querySelector(
+        ".pure-craft-btn"
+      );
+
+    const nextPure =
+      getNextPure(id);
+
+    if (
+      craftButton &&
+      !nextPure
+    ) {
+      craftButton.style.display =
+        "none";
+    }
+
+    if (
+      craftButton &&
+      nextPure
+    ) {
+      craftButton.onclick =
+        () => craftPure(id);
+    }
+
+    container.appendChild(entry);
+  });
 
 
-  // ===================== REMAINDER =====================
+  // =====================
+  // REMAINDER
+  // =====================
 
   const remainderEntry =
     document.createElement(
@@ -1197,35 +1187,50 @@ function renderPureBalances() {
 }
 
 
-// ===================== PURE HELPERS =====================
+// ===================== PURE ORDER =====================
 
 function getPureList() {
 
-  return Object.values(
-    PURE_TYPES
-  )
-    .sort(
-      (a, b) =>
-        a.tier - b.tier
-    );
+  return [
+    PURE_TYPES.refined,
+    PURE_TYPES.key,
+    PURE_TYPES.bills,
+    PURE_TYPES.earbuds,
+    PURE_TYPES.maxhead
+  ];
 }
 
 
 function getNextPure(id) {
 
-  const current =
-    PURE_TYPES[id];
+  const list =
+    getPureList();
 
-  if (!current) {
+  const index =
+    list.findIndex(
+      pure =>
+        pure.id === id
+    );
+
+  if (
+    index === -1 ||
+    index >= list.length - 1
+  ) {
     return null;
   }
 
-  return getPureList()
-    .find(
-      pure =>
-        pure.tier ===
-        current.tier + 1
-    ) || null;
+  return list[index + 1];
+}
+
+
+function getNextPureName(id) {
+
+  const next =
+    getNextPure(id);
+
+  return next
+    ? next.name
+    : "Tier";
 }
 
 
@@ -1251,235 +1256,226 @@ function calculateCraftRecipe(
   let remaining =
     targetValue;
 
-  const recipe = {};
+  const breakdown = {
+    maxhead: 0,
+    earbuds: 0,
+    bills: 0,
+    key: 0,
+    refined: 0
+  };
 
-  const lowerPures =
-    getPureList()
-      .filter(
-        pure =>
-          pure.tier <
-          target.tier
-      )
-      .sort(
-        (a, b) =>
-          b.tier - a.tier
+  const list =
+    getPureList();
+
+  const targetIndex =
+    list.findIndex(
+      pure =>
+        pure.id === targetId
+    );
+
+  if (targetIndex <= 0) {
+
+    return {
+      breakdown,
+      remaining:
+        remaining / 100,
+      suppliedValue: 0
+    };
+  }
+
+
+  // Start with the highest
+  // available lower tier.
+
+  for (
+    let i = targetIndex - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const pure =
+      list[i];
+
+    const pureValue =
+      Math.round(
+        pure.value * 100
       );
 
-  lowerPures.forEach(
-    pure => {
+    let available =
+      availableOnly
+        ? Number(
+            pures[pure.id]
+          ) || 0
+        : Infinity;
 
-      const pureValue =
-        Math.round(
-          pure.value * 100
-        );
-
-      let maxAmount =
-        Math.floor(
-          remaining /
-          pureValue
-        );
-
-      if (availableOnly) {
-
-        maxAmount =
-          Math.min(
-            maxAmount,
-            Number(
-              pures[pure.id]
-            ) || 0
-          );
-      }
-
-      if (maxAmount > 0) {
-
-        recipe[pure.id] =
-          maxAmount;
-
-        remaining -=
-          maxAmount *
-          pureValue;
-      }
+    if (
+      !Number.isFinite(
+        available
+      ) ||
+      available < 0
+    ) {
+      available = 0;
     }
-  );
+
+    const needed =
+      Math.floor(
+        remaining /
+        pureValue
+      );
+
+    const amount =
+      Math.min(
+        needed,
+        available
+      );
+
+    if (amount > 0) {
+
+      breakdown[pure.id] =
+        amount;
+
+      remaining -=
+        amount * pureValue;
+    }
+  }
 
   return {
-    target,
-    recipe,
-    remaining,
-    targetValue
+    breakdown,
+
+    remaining:
+      remaining / 100,
+
+    suppliedValue:
+      (
+        targetValue -
+        remaining
+      ) / 100
   };
 }
 
 
 // ===================== CRAFT PURE =====================
 
-async function craftPure(
-  fromId
-) {
+async function craftPure(fromId) {
 
-  const fromPure =
-    PURE_TYPES[fromId];
+  const target =
+    getNextPure(fromId);
 
-  const targetPure =
-    getNextPure(
-      fromId
-    );
-
-  if (
-    !fromPure ||
-    !targetPure
-  ) {
+  if (!target) {
 
     siteAlert(
-      "This pure cannot be upgraded any further.",
-      "Pure Craft"
+      "This pure is already the highest tier."
     );
 
     return;
   }
 
-  const available =
-    Number(
-      pures[fromId]
-    ) || 0;
 
-  // Keep this check because the button is attached
-  // to a specific lower-tier Pure.
-  if (available <= 0) {
-
-    siteAlert(
-      `You do not have any ${fromPure.name}.`,
-      "Pure Craft"
-    );
-
-    return;
-  }
+  /*
+   * We intentionally do not require
+   * pures[fromId] to be greater than 0.
+   *
+   * The next tier may be crafted
+   * from multiple lower-tier pures.
+   */
 
   const recipe =
     calculateCraftRecipe(
-      targetPure.id,
+      target.id,
       true
     );
 
   if (!recipe) {
+
+    siteAlert(
+      "Unable to calculate this crafting recipe."
+    );
+
     return;
   }
-
-
-  // =====================
-  // DISPLAY RECIPE
-  // =====================
-
-  const recipeParts = [];
-
-  Object.keys(
-    recipe.recipe
-  ).forEach(id => {
-
-    const amount =
-      recipe.recipe[id];
-
-    if (amount <= 0) {
-      return;
-    }
-
-    recipeParts.push(
-      `${amount} ${PURE_TYPES[id].name}`
-    );
-  });
-
-
-  // Remainder can participate
-  // in the craft.
 
   const currentRemainder =
     Math.round(
       pureRemainder * 100
-    );
-
-  const requiredValue =
-    recipe.targetValue;
+    ) / 100;
 
   const suppliedValue =
-    Object.keys(
-      recipe.recipe
-    ).reduce(
-      (sum, id) =>
-        sum +
-        recipe.recipe[id] *
-        Math.round(
-          PURE_TYPES[id].value *
-          100
-        ),
-      0
-    );
+    recipe.suppliedValue;
 
-  const totalAvailableValue =
+  const totalAvailable =
     suppliedValue +
     currentRemainder;
 
-
-  // =====================
-  // CHECK VALUE
-  // =====================
-
   if (
-    totalAvailableValue <
-    requiredValue
+    totalAvailable + 0.0001 <
+    target.value
   ) {
 
     const missing =
-      (
-        requiredValue -
-        totalAvailableValue
-      ) / 100;
+      target.value -
+      totalAvailable;
 
     siteAlert(
-      `Not enough lower-tier Pure to craft ${targetPure.name}.\n\n` +
-      `Required value: ${targetPure.value.toFixed(2)} coins\n` +
-      `Available value: ${(totalAvailableValue / 100).toFixed(2)} coins\n` +
-      `Missing: ${missing.toFixed(2)} coins`,
-      "Pure Craft"
+      `Not enough Pure to craft ${target.name}.\n\n` +
+      `Required: ${target.value.toFixed(2)} coins\n` +
+      `Available: ${totalAvailable.toFixed(2)} coins\n` +
+      `Still needed: ${missing.toFixed(2)} coins`
     );
 
     return;
   }
+
+
+  // =====================
+  // BUILD RECIPE MESSAGE
+  // =====================
+
+  const parts = [];
+
+  [
+    "maxhead",
+    "earbuds",
+    "bills",
+    "key",
+    "refined"
+  ].forEach(id => {
+
+    const amount =
+      recipe.breakdown[id] || 0;
+
+    if (amount > 0) {
+
+      parts.push(
+        `${amount} ${PURE_TYPES[id].name}`
+      );
+    }
+  });
+
+  if (currentRemainder > 0) {
+
+    parts.push(
+      `${currentRemainder.toFixed(2)} coin remainder`
+    );
+  }
+
+  const recipeText =
+    parts.length
+      ? parts.join("\n")
+      : "No available pure units.";
 
 
   // =====================
   // CONFIRM
   // =====================
 
-  let message =
-    `Craft 1 ${targetPure.name}?\n\n` +
-    `You will use:\n`;
-
-  if (recipeParts.length) {
-
-    message +=
-      recipeParts
-        .map(
-          part =>
-            `• ${part}`
-        )
-        .join("\n");
-  }
-
-  if (currentRemainder > 0) {
-
-    message +=
-      `\n• ${formatPureRemainder()} coins from Remainder`;
-  }
-
-  message +=
-    `\n\n` +
-    `Target value: ${targetPure.value.toFixed(2)} coins`;
-
-
   const confirmed =
     await siteConfirm(
-      message,
-      "Pure Craft"
+      `Craft 1 ${target.name}?\n\n` +
+      `You will use:\n` +
+      recipeText +
+      `\n\n` +
+      `Target value: ${target.value.toFixed(2)} coins`,
+      "Craft Pure"
     );
 
   if (!confirmed) {
@@ -1488,47 +1484,40 @@ async function craftPure(
 
 
   // =====================
-  // RE-CHECK BALANCES
+  // RECHECK
   // =====================
 
   const finalRecipe =
     calculateCraftRecipe(
-      targetPure.id,
+      target.id,
       true
     );
 
   if (!finalRecipe) {
+
+    siteAlert(
+      "The crafting recipe is no longer available."
+    );
+
     return;
   }
 
-  let finalSupplied =
-    Object.keys(
-      finalRecipe.recipe
-    ).reduce(
-      (sum, id) =>
-        sum +
-        finalRecipe.recipe[id] *
-        Math.round(
-          PURE_TYPES[id].value *
-          100
-        ),
-      0
-    );
-
-  let finalRemainder =
+  const finalRemainder =
     Math.round(
       pureRemainder * 100
-    );
+    ) / 100;
+
+  const finalTotal =
+    finalRecipe.suppliedValue +
+    finalRemainder;
 
   if (
-    finalSupplied +
-    finalRemainder <
-    requiredValue
+    finalTotal + 0.0001 <
+    target.value
   ) {
 
     siteAlert(
-      "Your Pure balance changed before the craft could be completed.",
-      "Pure Craft"
+      "You no longer have enough Pure to complete this craft."
     );
 
     return;
@@ -1540,95 +1529,73 @@ async function craftPure(
   // =====================
 
   Object.keys(
-    finalRecipe.recipe
-  )
-    .forEach(id => {
+    finalRecipe.breakdown
+  ).forEach(id => {
 
-      const amount =
-        finalRecipe.recipe[id];
+    const amount =
+      finalRecipe.breakdown[id] ||
+      0;
 
-      if (amount > 0) {
+    if (amount > 0) {
 
-        pures[id] =
-          Math.max(
-            0,
-            (
-              Number(
-                pures[id]
-              ) || 0
-            ) - amount
-          );
-      }
-    });
+      pures[id] =
+        Math.max(
+          0,
+          (Number(
+            pures[id]
+          ) || 0) - amount
+        );
+    }
+  });
 
 
   // =====================
   // CONSUME REMAINDER
   // =====================
 
-  const pureValueUsed =
-    Object.keys(
-      finalRecipe.recipe
-    ).reduce(
-      (sum, id) =>
-        sum +
-        finalRecipe.recipe[id] *
-        Math.round(
-          PURE_TYPES[id].value *
-          100
-        ),
-      0
+  const remainingAfterPures =
+    Math.max(
+      0,
+      target.value -
+      finalRecipe.suppliedValue
     );
 
   const remainderUsed =
-    Math.max(
-      0,
-      requiredValue -
-      pureValueUsed
+    Math.min(
+      pureRemainder,
+      remainingAfterPures
     );
 
   pureRemainder =
     Math.max(
       0,
-      (
-        finalRemainder -
-        remainderUsed
+      Math.round(
+        (
+          pureRemainder -
+          remainderUsed
+        ) * 100
       ) / 100
     );
 
-  pureRemainder =
-    Math.round(
-      pureRemainder * 100
-    ) / 100;
-
 
   // =====================
-  // ADD NEW PURE
+  // ADD TARGET PURE
   // =====================
 
-  pures[targetPure.id] =
-    (
-      Number(
-        pures[targetPure.id]
-      ) || 0
-    ) + 1;
-
+  pures[target.id] =
+    (Number(
+      pures[target.id]
+    ) || 0) + 1;
 
   savePures();
+
   savePureRemainder();
 
   renderPureBalances();
 
-
-  // =====================
-  // SUCCESS MESSAGE
-  // =====================
-
   siteAlert(
-    `Successfully crafted 1 ${targetPure.name}!\n\n` +
-    `Value: ${targetPure.value.toFixed(2)} coins\n` +
-    `Remaining Pure: ${formatPureRemainder()} coins`,
-    "Pure Craft"
+    `Crafted 1 ${target.name}! 🎉\n\n` +
+    `Value: ${target.value.toFixed(2)} coins`
   );
 }
 
@@ -1655,27 +1622,24 @@ function addPure(
     ) ||
     wholeAmount <= 0
   ) {
-
     return;
   }
 
   pures[id] =
-    (
-      Number(
-        pures[id]
-      ) || 0
-    ) + wholeAmount;
+    (Number(
+      pures[id]
+    ) || 0) +
+    wholeAmount;
 
   savePures();
+
   renderPureBalances();
 }
 
 
 // ===================== WITHDRAW PURE =====================
 
-async function withdrawPure(
-  id
-) {
+async function withdrawPure(id) {
 
   const pure =
     PURE_TYPES[id];
@@ -1691,7 +1655,11 @@ async function withdrawPure(
   ) {
 
     siteAlert(
-      `You do not have any ${pure ? pure.name : "pure"}.`
+      `You do not have any ${
+        pure
+          ? pure.name
+          : "pure"
+      }.`
     );
 
     return;
@@ -1751,14 +1719,18 @@ async function withdrawPure(
     });
   }
 
-  pures[id] -=
-    amount;
+  pures[id] -= amount;
 
   savePures();
+
   saveInventory();
+
   renderPureBalances();
+
   renderInventory();
+
   populateCoinflipDropdown();
+
   updateBackpackValue();
 
   siteAlert(
@@ -1767,7 +1739,7 @@ async function withdrawPure(
 }
 
 
-// ===================== PURE REMAINDER =====================
+// ===================== LOAD REMAINDER =====================
 
 function loadPureRemainder() {
 
@@ -1778,14 +1750,18 @@ function loadPureRemainder() {
       )
     );
 
-  return Number.isFinite(saved) &&
+  return (
+    Number.isFinite(saved) &&
     saved > 0
-      ? Math.round(
-          saved * 100
-        ) / 100
-      : 0;
+  )
+    ? Math.round(
+        saved * 100
+      ) / 100
+    : 0;
 }
 
+
+// ===================== SAVE REMAINDER =====================
 
 function savePureRemainder() {
 
@@ -1795,6 +1771,8 @@ function savePureRemainder() {
   );
 }
 
+
+// ===================== FORMAT REMAINDER =====================
 
 function formatPureRemainder(
   value = pureRemainder
@@ -1806,17 +1784,14 @@ function formatPureRemainder(
 }
 
 
-function addPureRemainder(
-  amount
-) {
+function addPureRemainder(amount) {
 
   const added =
     Math.max(
       0,
       Math.round(
         (
-          Number(amount) ||
-          0
+          Number(amount) || 0
         ) * 100
       ) / 100
     );
@@ -1837,8 +1812,7 @@ function addPureRemainder(
       ) * 100
     );
 
-  const refinedValue =
-    3;
+  const refinedValue = 3;
 
   const refinedAdded =
     Math.floor(
@@ -1864,18 +1838,21 @@ function addPureRemainder(
 
   return {
     refinedAdded,
-    remainder: pureRemainder
+    remainder:
+      pureRemainder
   };
 }
 
 
 function getPureRemainderDisplay() {
 
-  return `Remainder: ${formatPureRemainder()} coins`;
+  return (
+    `Remainder: ${formatPureRemainder()} coins`
+  );
 }
 
 
-// ===================== PURE BREAKDOWN =====================
+// ===================== COIN VALUE → PURE =====================
 
 function calculatePureBreakdown(
   coinValue
@@ -1886,49 +1863,60 @@ function calculatePureBreakdown(
       0,
       Math.round(
         (
-          Number(
-            coinValue
-          ) || 0
+          Number(coinValue) || 0
         ) * 100
       )
     );
 
-  const breakdown = {};
+  const values = {
+    maxhead: 7256,
+    earbuds: 1872,
+    bills: 875,
+    key: 236,
+    refined: 3
+  };
 
-  getPureList()
-    .sort(
-      (a, b) =>
-        b.tier - a.tier
-    )
-    .forEach(
-      pure => {
+  const breakdown = {
+    maxhead: 0,
+    earbuds: 0,
+    bills: 0,
+    key: 0,
+    refined: 0
+  };
 
-        const value =
-          Math.round(
-            pure.value * 100
-          );
+  for (
+    const id of [
+      "maxhead",
+      "earbuds",
+      "bills",
+      "key",
+      "refined"
+    ]
+  ) {
 
-        const count =
-          Math.floor(
-            remainingHundredths /
-            value
-          );
+    const count =
+      Math.floor(
+        remainingHundredths /
+        values[id]
+      );
 
-        breakdown[pure.id] =
-          count;
+    breakdown[id] =
+      count;
 
-        remainingHundredths -=
-          count * value;
-      }
-    );
+    remainingHundredths -=
+      count * values[id];
+  }
 
   return {
     breakdown,
+
     remainder:
       remainingHundredths / 100
   };
 }
 
+
+// ===================== FORMAT PURE BREAKDOWN =====================
 
 function formatPureBreakdown(
   breakdown
@@ -1936,26 +1924,24 @@ function formatPureBreakdown(
 
   const parts = [];
 
-  getPureList()
-    .sort(
-      (a, b) =>
-        b.tier - a.tier
-    )
-    .forEach(
-      pure => {
+  [
+    "maxhead",
+    "earbuds",
+    "bills",
+    "key",
+    "refined"
+  ].forEach(id => {
 
-        const amount =
-          breakdown[pure.id] ||
-          0;
+    const amount =
+      breakdown[id] || 0;
 
-        if (amount > 0) {
+    if (amount > 0) {
 
-          parts.push(
-            `${amount} ${pure.name}`
-          );
-        }
-      }
-    );
+      parts.push(
+        `${amount} ${PURE_TYPES[id].name}`
+      );
+    }
+  });
 
   return parts.length
     ? parts.join(" + ")
@@ -1977,9 +1963,9 @@ function convertInventoryItem(
   }
 
 
-  // Physical pure:
-  // convert one item directly
-  // into the matching Pure balance.
+  // =====================
+  // PHYSICAL PURE
+  // =====================
 
   if (isPureItem(item)) {
 
@@ -2006,8 +1992,11 @@ function convertInventoryItem(
     );
 
     saveInventory();
+
     renderInventory();
+
     populateCoinflipDropdown();
+
     updateBackpackValue();
 
     siteAlert(
@@ -2018,13 +2007,15 @@ function convertInventoryItem(
   }
 
 
+  // =====================
+  // NORMAL ITEM
+  // =====================
+
   const itemValue =
     Number(item.price);
 
   if (
-    !Number.isFinite(
-      itemValue
-    ) ||
+    !Number.isFinite(itemValue) ||
     itemValue <= 0
   ) {
 
@@ -2036,8 +2027,7 @@ function convertInventoryItem(
   }
 
 
-  // 25% conversion fee:
-  // only 75% becomes pure value.
+  // 25% conversion fee.
 
   const convertibleValue =
     itemValue *
@@ -2048,23 +2038,8 @@ function convertInventoryItem(
       convertibleValue
     );
 
-  const totalUnits =
-    Object.values(
-      result.breakdown
-    ).reduce(
-      (sum, n) =>
-        sum + n,
-      0
-    );
 
-  if (totalUnits <= 0) {
-
-    siteAlert(
-      `${item.name} is worth ${itemValue.toFixed(2)} coins, but its 75% conversion value is too small to make 1 Refined.`
-    );
-
-    return;
-  }
+  // Remove item first.
 
   inventory.splice(
     index,
@@ -2072,35 +2047,55 @@ function convertInventoryItem(
   );
 
 
+  // =====================
+  // ADD WHOLE PURES
+  // =====================
+
   Object.keys(
     result.breakdown
-  ).forEach(
-    id => {
+  ).forEach(id => {
+
+    const amount =
+      result.breakdown[id];
+
+    if (amount > 0) {
 
       addPure(
         id,
-        result.breakdown[id]
+        amount
       );
     }
-  );
+  });
 
+
+  // =====================
+  // STORE REMAINDER
+  // =====================
 
   const remainderResult =
     addPureRemainder(
       result.remainder
     );
 
+  saveInventory();
+
   renderPureBalances();
 
-  saveInventory();
   renderInventory();
+
   populateCoinflipDropdown();
+
   updateBackpackValue();
 
 
+  const receivedText =
+    formatPureBreakdown(
+      result.breakdown
+    );
+
   const remainderText =
-    `\nThis conversion's leftover: ${result.remainder.toFixed(2)} coins.` +
-    `\nStored remainder: ${formatPureRemainder()}.` +
+    `This conversion's leftover: ${result.remainder.toFixed(2)} coins.\n` +
+    `Stored remainder: ${formatPureRemainder()}.` +
     (
       remainderResult.refinedAdded > 0
         ? `\nAuto-converted ${remainderResult.refinedAdded} Refined Metal from accumulated remainder.`
@@ -2111,17 +2106,16 @@ function convertInventoryItem(
   siteAlert(
     `Converted ${item.name}.\n\n` +
     `Original value: ${itemValue.toFixed(2)} coins\n` +
-    `After 25% fee: ${convertibleValue.toFixed(2)} coins\n` +
-    `Received: ${formatPureBreakdown(result.breakdown)}${remainderText}`
+    `After 25% fee: ${convertibleValue.toFixed(2)} coins\n\n` +
+    `Received: ${receivedText}\n\n` +
+    remainderText
   );
 }
 
 
 // ===================== SELL ITEM =====================
 
-function sellItem(
-  index
-) {
+function sellItem(index) {
 
   if (
     !inventory[index] ||
@@ -2129,12 +2123,13 @@ function sellItem(
       inventory[index]
     )
   ) {
-
     return;
   }
 
   coins +=
-    inventory[index].price;
+    Number(
+      inventory[index].price
+    ) || 0;
 
   inventory.splice(
     index,
@@ -2142,9 +2137,13 @@ function sellItem(
   );
 
   saveInventory();
+
   updateCoins();
+
   renderInventory();
+
   populateCoinflipDropdown();
+
   updateBackpackValue();
 }
 
@@ -2167,19 +2166,26 @@ function sellAllItems() {
   const total =
     inventory.reduce(
       (sum, i) =>
-        sum + i.price,
+        sum +
+        (
+          Number(i.price) ||
+          0
+        ),
       0
     );
 
-  coins +=
-    total;
+  coins += total;
 
   inventory = [];
 
   saveInventory();
+
   updateCoins();
+
   renderInventory();
+
   populateCoinflipDropdown();
+
   updateBackpackValue();
 
   siteAlert(
@@ -2195,7 +2201,11 @@ function updateBackpackValue() {
   const total =
     inventory.reduce(
       (sum, item) =>
-        sum + item.price,
+        sum +
+        (
+          Number(item.price) ||
+          0
+        ),
       0
     );
 
@@ -2227,7 +2237,9 @@ function sortInventoryByPriceDesc() {
   );
 
   saveInventory();
+
   renderInventory();
+
   updateBackpackValue();
 }
 
@@ -2245,7 +2257,6 @@ function toggleCaseItems() {
     !list ||
     !currentCase
   ) {
-
     return;
   }
 
@@ -2263,34 +2274,42 @@ function toggleCaseItems() {
   list.style.display =
     "block";
 
-  list.innerHTML =
-    "";
+  list.innerHTML = "";
 
   const totalWeight =
     currentCase.items.reduce(
       (sum, i) =>
-        sum + i.weight,
+        sum +
+        (
+          Number(i.weight) ||
+          0
+        ),
       0
     );
 
   const sortedItems =
-    [
-      ...currentCase.items
-    ].sort(
+    [...currentCase.items].sort(
       (a, b) =>
-        b.price - a.price
+        (
+          Number(b.price) || 0
+        ) -
+        (
+          Number(a.price) || 0
+        )
     );
 
   sortedItems.forEach(
     item => {
 
       const dropRate =
-        (
-          (
-            item.weight /
-            totalWeight
-          ) * 100
-        ).toFixed(2);
+        totalWeight > 0
+          ? (
+              (
+                item.weight /
+                totalWeight
+              ) * 100
+            ).toFixed(2)
+          : "0.00";
 
       const div =
         document.createElement(
@@ -2298,25 +2317,33 @@ function toggleCaseItems() {
         );
 
       div.className =
-        `inv-item ${item.rarity.toLowerCase()}`;
+        `inv-item ${
+          String(
+            item.rarity ||
+            "common"
+          ).toLowerCase()
+        }`;
 
       div.innerHTML = `
         <img src="${item.image}">
+
         <p>${item.name}</p>
-        <small>${item.price.toFixed(2)} coins</small>
+
+        <small>
+          ${Number(item.price).toFixed(2)} coins
+        </small>
 
         <small
           style="
             font-size:14px;
             margin-top:5px;
-          ">
+          "
+        >
           ⊹ ${dropRate}% ⊹ chance
         </small>
       `;
 
-      list.appendChild(
-        div
-      );
+      list.appendChild(div);
     }
   );
 }
@@ -2335,42 +2362,46 @@ function renderTopDrops() {
     return;
   }
 
-  container.innerHTML =
-    "";
+  container.innerHTML = "";
 
-  [
-    ...recentDrops
-  ]
+  [...recentDrops]
     .sort(
       (a, b) =>
-        b.price - a.price
+        (
+          Number(b.price) || 0
+        ) -
+        (
+          Number(a.price) || 0
+        )
     )
-    .slice(
-      0,
-      8
-    )
-    .forEach(
-      item => {
+    .slice(0, 8)
+    .forEach(item => {
 
-        const div =
-          document.createElement(
-            "div"
-          );
-
-        div.className =
-          `top-drop ${item.rarity.toLowerCase()}`;
-
-        div.innerHTML = `
-          <img src="${item.image}">
-          <p>${item.name}</p>
-          <strong>${item.price.toFixed(2)} coins</strong>
-        `;
-
-        container.appendChild(
-          div
+      const div =
+        document.createElement(
+          "div"
         );
-      }
-    );
+
+      div.className =
+        `top-drop ${
+          String(
+            item.rarity ||
+            "common"
+          ).toLowerCase()
+        }`;
+
+      div.innerHTML = `
+        <img src="${item.image}">
+
+        <p>${item.name}</p>
+
+        <strong>
+          ${Number(item.price).toFixed(2)} coins
+        </strong>
+      `;
+
+      container.appendChild(div);
+    });
 }
 
 
@@ -2387,29 +2418,34 @@ function populateCoinflipDropdown() {
     return;
   }
 
-  select.innerHTML =
-    "";
+  select.innerHTML = "";
+
+  const usableItems =
+    inventory.filter(
+      item =>
+        !isPureItem(item)
+    );
 
   if (
-    inventory.length === 0
+    usableItems.length === 0
   ) {
 
     select.innerHTML =
       `<option>No items available</option>`;
 
-    select.disabled =
-      true;
+    select.disabled = true;
 
     return;
   }
 
-  select.disabled =
-    false;
+  select.disabled = false;
 
   inventory.forEach(
     (item, index) => {
 
-      if (isPureItem(item)) {
+      if (
+        isPureItem(item)
+      ) {
         return;
       }
 
@@ -2422,35 +2458,26 @@ function populateCoinflipDropdown() {
         index;
 
       option.textContent =
-        `${item.name} (${item.price.toFixed(2)} coins)`;
+        `${item.name} (${Number(item.price).toFixed(2)} coins)`;
 
-      select.appendChild(
-        option
-      );
+      select.appendChild(option);
     }
   );
-
-  if (
-    select.options.length === 0
-  ) {
-
-    select.innerHTML =
-      `<option>No items available</option>`;
-
-    select.disabled =
-      true;
-  }
 }
 
 
-function coinflipItem(
-  index
-) {
+// ===================== COINFLIP ITEM =====================
+
+function coinflipItem(index) {
 
   const item =
     inventory[index];
 
   if (!item) {
+    return;
+  }
+
+  if (isPureItem(item)) {
     return;
   }
 
@@ -2468,16 +2495,13 @@ function coinflipItem(
     !coin ||
     !flipBtn
   ) {
-
     return;
   }
 
-  flipBtn.disabled =
-    true;
+  flipBtn.disabled = true;
 
   const win =
-    Math.random() <
-    0.5;
+    Math.random() < 0.5;
 
   const finalClass =
     win
@@ -2486,8 +2510,7 @@ function coinflipItem(
 
   let flips = 0;
 
-  const totalFlips =
-    10;
+  const totalFlips = 10;
 
   const flipInterval =
     setInterval(
@@ -2504,8 +2527,7 @@ function coinflipItem(
         flips++;
 
         if (
-          flips >
-          totalFlips
+          flips > totalFlips
         ) {
 
           clearInterval(
@@ -2544,8 +2566,11 @@ function coinflipItem(
           }
 
           updateBackpackValue();
+
           saveInventory();
+
           renderInventory();
+
           populateCoinflipDropdown();
 
           flipBtn.disabled =
@@ -2562,134 +2587,124 @@ function coinflipItem(
 
 function loadCases() {
 
-  fetch(
-    "data/cases.json"
-  )
-    .then(
-      res =>
-        res.json()
-    )
-    .then(
-      data => {
+  fetch("data/cases.json")
+    .then(res => {
 
-        cases =
-          data.cases;
+      if (!res.ok) {
+        throw new Error(
+          `HTTP ${res.status}`
+        );
+      }
 
-        const display =
-          document.getElementById(
-            "case-select-display"
-          );
+      return res.json();
+    })
+    .then(data => {
 
-        const options =
-          document.getElementById(
-            "case-select-options"
-          );
+      cases =
+        Array.isArray(data.cases)
+          ? data.cases
+          : [];
 
-        if (
-          !display ||
-          !options
-        ) {
-
-          return;
-        }
-
-        options.innerHTML =
-          "";
-
-        cases.forEach(
-          c => {
-
-            const div =
-              document.createElement(
-                "div"
-              );
-
-            div.innerHTML = `
-              <img src="${c.image}">
-              <span>
-                ${c.name}
-                (${c.price.toFixed(2)} coins)
-              </span>
-            `;
-
-            div.onclick =
-              () => {
-
-                selectCase(
-                  c.id
-                );
-
-                options.style.display =
-                  "none";
-              };
-
-            options.appendChild(
-              div
-            );
-          }
+      const display =
+        document.getElementById(
+          "case-select-display"
         );
 
-        if (
-          cases.length > 0
-        ) {
+      const options =
+        document.getElementById(
+          "case-select-options"
+        );
 
-          selectCase(
-            cases[0].id
+      if (
+        !display ||
+        !options
+      ) {
+        return;
+      }
+
+      options.innerHTML = "";
+
+      cases.forEach(c => {
+
+        const div =
+          document.createElement(
+            "div"
           );
-        }
 
-        display.onclick =
-          () => {
+        div.innerHTML = `
+          <img src="${c.image}">
+
+          <span>
+            ${c.name}
+            (${Number(c.price).toFixed(2)} coins)
+          </span>
+        `;
+
+        div.onclick = () => {
+
+          selectCase(c.id);
+
+          options.style.display =
+            "none";
+        };
+
+        options.appendChild(div);
+      });
+
+      if (
+        cases.length > 0
+      ) {
+
+        selectCase(
+          cases[0].id
+        );
+      }
+
+      display.onclick = () => {
+
+        options.style.display =
+          options.style.display ===
+          "block"
+            ? "none"
+            : "block";
+      };
+
+      document.addEventListener(
+        "click",
+        e => {
+
+          if (
+            !display.contains(
+              e.target
+            ) &&
+            !options.contains(
+              e.target
+            )
+          ) {
 
             options.style.display =
-              options.style.display ===
-              "block"
-                ? "none"
-                : "block";
-          };
-
-        document.addEventListener(
-          "click",
-          e => {
-
-            if (
-              !display.contains(
-                e.target
-              ) &&
-              !options.contains(
-                e.target
-              )
-            ) {
-
-              options.style.display =
-                "none";
-            }
+              "none";
           }
-        );
-      }
-    )
-    .catch(
-      error => {
+        }
+      );
+    })
+    .catch(error => {
 
-        console.error(
-          "Failed to load cases:",
-          error
-        );
-      }
-    );
+      console.error(
+        "Failed to load cases:",
+        error
+      );
+    });
 }
 
 
 // ===================== SELECT CASE =====================
 
-function selectCase(
-  id
-) {
+function selectCase(id) {
 
   currentCase =
     cases.find(
-      c =>
-        c.id === id
+      c => c.id === id
     );
 
   if (!currentCase) {
@@ -2731,16 +2746,17 @@ function selectCase(
   if (openButton) {
 
     openButton.textContent =
-      `⛃ ${currentCase.price.toFixed(2)} ⛃`;
+      `⛃ ${Number(currentCase.price).toFixed(2)} ⛃`;
   }
 
   if (display) {
 
     display.innerHTML = `
       <img src="${currentCase.image}">
+
       <span>
         ${currentCase.name}
-        (${currentCase.price.toFixed(2)} coins)
+        (${Number(currentCase.price).toFixed(2)} coins)
       </span>
     `;
   }
@@ -2749,9 +2765,7 @@ function selectCase(
 
 // ===================== OPEN CASES =====================
 
-function openCases(
-  count
-) {
+function openCases(count) {
 
   if (isSpinning) {
     return;
@@ -2761,8 +2775,7 @@ function openCases(
     return;
   }
 
-  isSpinning =
-    true;
+  isSpinning = true;
 
   for (
     let i = 0;
@@ -2772,21 +2785,24 @@ function openCases(
 
     if (
       coins <
-      currentCase.price
+      Number(
+        currentCase.price
+      )
     ) {
 
       siteAlert(
         "Not enough coins."
       );
 
-      isSpinning =
-        false;
+      isSpinning = false;
 
       break;
     }
 
     coins -=
-      currentCase.price;
+      Number(
+        currentCase.price
+      );
 
     updateCoins();
 
@@ -2811,7 +2827,11 @@ function getRandomItem(
   const total =
     items.reduce(
       (sum, i) =>
-        sum + i.weight,
+        sum +
+        (
+          Number(i.weight) ||
+          0
+        ),
       0
     );
 
@@ -2823,16 +2843,16 @@ function getRandomItem(
     let item of items
   ) {
 
-    if (
-      roll <
-      item.weight
-    ) {
+    const weight =
+      Number(item.weight) || 0;
 
+    if (
+      roll < weight
+    ) {
       return item;
     }
 
-    roll -=
-      item.weight;
+    roll -= weight;
   }
 
   return items[0];
@@ -2852,20 +2872,16 @@ function spinToItem(
 
   if (!strip) {
 
-    isSpinning =
-      false;
+    isSpinning = false;
 
     return;
   }
 
-  strip.innerHTML =
-    "";
+  strip.innerHTML = "";
 
-  const slots =
-    50;
+  const slots = 50;
 
-  const winnerIndex =
-    38;
+  const winnerIndex = 38;
 
   for (
     let i = 0;
@@ -2884,9 +2900,7 @@ function spinToItem(
     if (
       i === winnerIndex
     ) {
-
-      item =
-        winningItem;
+      item = winningItem;
     }
 
     const div =
@@ -2895,7 +2909,12 @@ function spinToItem(
       );
 
     div.className =
-      `spinner-item ${item.rarity.toLowerCase()}`;
+      `spinner-item ${
+        String(
+          item.rarity ||
+          "common"
+        ).toLowerCase()
+      }`;
 
     div.innerHTML =
       `<img src="${item.image}">`;
@@ -2903,21 +2922,39 @@ function spinToItem(
     div.style.filter =
       "grayscale(100%)";
 
-    strip.appendChild(
-      div
-    );
+    strip.appendChild(div);
   }
 
   strip.offsetHeight;
 
-  const itemWidth =
-    strip.children[0]
-      .offsetWidth + 30;
+  const firstChild =
+    strip.children[0];
 
-  const containerWidth =
+  if (!firstChild) {
+
+    isSpinning = false;
+
+    return;
+  }
+
+  const itemWidth =
+    firstChild.offsetWidth +
+    30;
+
+  const container =
     document.getElementById(
       "spinner-container"
-    ).offsetWidth;
+    );
+
+  if (!container) {
+
+    isSpinning = false;
+
+    return;
+  }
+
+  const containerWidth =
+    container.offsetWidth;
 
   const randomSpot =
     (
@@ -2946,14 +2983,10 @@ function spinToItem(
   const offset =
     -(
       winnerIndex *
-      itemWidth
-      -
-      containerWidth / 2
-      +
-      itemWidth / 2
-      +
-      randomOffsetInsideItem
-      +
+        itemWidth -
+      containerWidth / 2 +
+      itemWidth / 2 +
+      randomOffsetInsideItem +
       jitter
     );
 
@@ -2970,6 +3003,7 @@ function spinToItem(
 
   strip.style.transform =
     `translateX(${offset}px)`;
+
 
   const interval =
     setInterval(
@@ -3011,13 +3045,19 @@ function spinToItem(
               );
 
             child.style.filter =
-              `grayscale(${(1 - factor) * 77}%) brightness(${0.6 + 0.4 * factor})`;
+              `grayscale(${
+                (1 - factor) * 77
+              }%) brightness(${
+                0.6 +
+                0.4 * factor
+              })`;
           }
         );
 
       },
       30
     );
+
 
   setTimeout(
     () => {
@@ -3059,10 +3099,7 @@ function spinToItem(
 
       setTimeout(
         () => {
-
-          isSpinning =
-            false;
-
+          isSpinning = false;
         },
         200
       );
@@ -3079,40 +3116,30 @@ function animateWinner(
   element
 ) {
 
-  let scale =
-    1;
+  let scale = 1;
 
-  let growing =
-    true;
+  let growing = true;
 
   function frame() {
 
     if (growing) {
 
-      scale +=
-        0.005;
+      scale += 0.005;
 
       if (
-        scale >=
-        1.2
+        scale >= 1.2
       ) {
-
-        growing =
-          false;
+        growing = false;
       }
 
     } else {
 
-      scale -=
-        0.005;
+      scale -= 0.005;
 
       if (
-        scale <=
-        1
+        scale <= 1
       ) {
-
-        growing =
-          true;
+        growing = true;
       }
     }
 
@@ -3143,10 +3170,8 @@ function showWinner(
   );
 
   if (
-    recentDrops.length >
-    20
+    recentDrops.length > 20
   ) {
-
     recentDrops.shift();
   }
 
@@ -3171,7 +3196,10 @@ function showWinner(
       item.name;
 
     winnerBox.className =
-      item.rarity.toLowerCase();
+      String(
+        item.rarity ||
+        "common"
+      ).toLowerCase();
   }
 }
 
@@ -3194,9 +3222,13 @@ async function adminGiveItem() {
     !panel ||
     !itemsContainer
   ) {
-
     return;
   }
+
+
+  // =====================
+  // PASSWORD
+  // =====================
 
   if (!adminMode) {
 
@@ -3210,7 +3242,6 @@ async function adminGiveItem() {
     if (
       password === null
     ) {
-
       return;
     }
 
@@ -3226,13 +3257,13 @@ async function adminGiveItem() {
       return;
     }
 
-    adminMode =
-      true;
+    adminMode = true;
 
     siteAlert(
       "Trading Mode Enabled."
     );
   }
+
 
   panel.style.display =
     "block";
@@ -3240,11 +3271,16 @@ async function adminGiveItem() {
   itemsContainer.innerHTML =
     "";
 
-  let allItems =
-    [];
+  let allItems = [];
 
   cases.forEach(
     c => {
+
+      if (
+        !Array.isArray(c.items)
+      ) {
+        return;
+      }
 
       c.items.forEach(
         item => {
@@ -3256,6 +3292,7 @@ async function adminGiveItem() {
       );
     }
   );
+
 
   allItems.forEach(
     item => {
@@ -3278,7 +3315,7 @@ async function adminGiveItem() {
           </span>
 
           <span class="price">
-            ${item.price.toFixed(2)} coins
+            ${Number(item.price).toFixed(2)} coins
           </span>
 
         </div>
@@ -3290,48 +3327,50 @@ async function adminGiveItem() {
 
       div.querySelector(
         "button"
-      ).onclick =
-        () => {
+      ).onclick = () => {
 
-          if (
-            coins <
-            item.price
-          ) {
+        const price =
+          Number(item.price) ||
+          0;
 
-            siteAlert(
-              "Not enough coins."
-            );
-
-            return;
-          }
-
-          coins -=
-            item.price;
-
-          updateCoins();
-
-          inventory.push({
-            ...item
-          });
-
-          saveInventory();
-
-          renderInventory();
-
-          populateCoinflipDropdown();
-
-          updateBackpackValue();
+        if (
+          coins < price
+        ) {
 
           siteAlert(
-            `Traded ${item.name} for ${item.price.toFixed(2)} coins`
+            "Not enough coins."
           );
-        };
+
+          return;
+        }
+
+        coins -= price;
+
+        updateCoins();
+
+        inventory.push({
+          ...item
+        });
+
+        saveInventory();
+
+        renderInventory();
+
+        populateCoinflipDropdown();
+
+        updateBackpackValue();
+
+        siteAlert(
+          `Traded ${item.name} for ${price.toFixed(2)} coins`
+        );
+      };
 
       itemsContainer.appendChild(
         div
       );
     }
   );
+
 
   const closeButton =
     document.getElementById(
@@ -3346,8 +3385,7 @@ async function adminGiveItem() {
         panel.style.display =
           "none";
 
-        adminMode =
-          false;
+        adminMode = false;
       };
   }
 }
@@ -3355,23 +3393,19 @@ async function adminGiveItem() {
 
 /* =========================================================
    UPGRADE SYSTEM
-========================================================= */
+   ========================================================= */
 
 let Upgrader = {
-
   cases: [],
-
   selectedWagers: [],
-
   selectedTargets: [],
-
   upgrading: false
 };
 
 
-/* =========================
-   KEY
-========================= */
+// =========================
+// KEY
+// =========================
 
 function getKey(
   item,
@@ -3384,9 +3418,9 @@ function getKey(
 }
 
 
-/* =========================
-   INIT
-========================= */
+// =========================
+// INIT
+// =========================
 
 window.addEventListener(
   "load",
@@ -3405,15 +3439,19 @@ window.addEventListener(
         renderTarget();
 
         updateUI();
+
+        setupUpgradeButton();
       }
     );
   }
 );
 
 
-function waitForCases(
-  cb
-) {
+// =========================
+// WAIT FOR CASES
+// =========================
+
+function waitForCases(cb) {
 
   if (
     !cases ||
@@ -3433,9 +3471,9 @@ function waitForCases(
 }
 
 
-/* =========================
-   LOAD BUTTONS
-========================= */
+// =========================
+// LOAD BUTTONS
+// =========================
 
 function createLoadButtons() {
 
@@ -3448,6 +3486,7 @@ function createLoadButtons() {
     document.querySelector(
       "#target-list"
     )?.parentElement;
+
 
   if (
     wagerParent &&
@@ -3477,6 +3516,7 @@ function createLoadButtons() {
       btn
     );
   }
+
 
   if (
     targetParent &&
@@ -3509,9 +3549,9 @@ function createLoadButtons() {
 }
 
 
-/* =========================
-   WAGER RENDER
-========================= */
+// =========================
+// WAGER RENDER
+// =========================
 
 function renderWager() {
 
@@ -3524,13 +3564,17 @@ function renderWager() {
     return;
   }
 
-  box.innerHTML =
-    "";
+  box.innerHTML = "";
 
   inventory.forEach(
     (item, index) => {
 
-      if (isPureItem(item)) {
+      // Pure cannot be used
+      // as an upgrade wager.
+
+      if (
+        isPureItem(item)
+      ) {
         return;
       }
 
@@ -3552,44 +3596,55 @@ function renderWager() {
         );
 
       div.className =
-        `upgrade-item ${item.rarity} ${selected ? "selected" : ""}`;
+        `upgrade-item ${
+          item.rarity
+        } ${
+          selected
+            ? "selected"
+            : ""
+        }`;
 
       div.innerHTML = `
         <img src="${item.image}">
-        <small>${item.name}</small>
-        <small>${item.price.toFixed(2)} ⛃</small>
+
+        <small>
+          ${item.name}
+        </small>
+
+        <small>
+          ${Number(item.price).toFixed(2)} ⛃
+        </small>
       `;
 
-      div.onclick =
-        () => {
+      div.onclick = () => {
 
-          const exists =
-            Upgrader.selectedWagers.find(
+        const exists =
+          Upgrader.selectedWagers.find(
+            i =>
+              i.key === key
+          );
+
+        if (exists) {
+
+          Upgrader.selectedWagers =
+            Upgrader.selectedWagers.filter(
               i =>
-                i.key === key
+                i.key !== key
             );
 
-          if (exists) {
+        } else {
 
-            Upgrader.selectedWagers =
-              Upgrader.selectedWagers.filter(
-                i =>
-                  i.key !== key
-              );
+          Upgrader.selectedWagers.push({
+            item,
+            index,
+            key
+          });
+        }
 
-          } else {
+        renderWager();
 
-            Upgrader.selectedWagers.push({
-              item,
-              index,
-              key
-            });
-          }
-
-          renderWager();
-
-          updateUI();
-        };
+        updateUI();
+      };
 
       box.appendChild(
         div
@@ -3599,9 +3654,9 @@ function renderWager() {
 }
 
 
-/* =========================
-   TARGET RENDER
-========================= */
+// =========================
+// TARGET RENDER
+// =========================
 
 function renderTarget() {
 
@@ -3614,19 +3669,30 @@ function renderTarget() {
     return;
   }
 
-  box.innerHTML =
-    "";
+  box.innerHTML = "";
 
-  let allItems =
-    [];
+  let allItems = [];
 
   cases.forEach(
-    c =>
+    c => {
+
+      if (
+        !Array.isArray(c.items)
+      ) {
+        return;
+      }
+
       c.items.forEach(
-        i =>
-          allItems.push(i)
-      )
+        item => {
+
+          allItems.push(
+            item
+          );
+        }
+      );
+    }
   );
+
 
   allItems.forEach(
     (item, index) => {
@@ -3649,44 +3715,55 @@ function renderTarget() {
         );
 
       div.className =
-        `upgrade-item ${item.rarity} ${selected ? "selected" : ""}`;
+        `upgrade-item ${
+          item.rarity
+        } ${
+          selected
+            ? "selected"
+            : ""
+        }`;
 
       div.innerHTML = `
         <img src="${item.image}">
-        <small>${item.name}</small>
-        <small>${item.price.toFixed(2)} ⛃</small>
+
+        <small>
+          ${item.name}
+        </small>
+
+        <small>
+          ${Number(item.price).toFixed(2)} ⛃
+        </small>
       `;
 
-      div.onclick =
-        () => {
+      div.onclick = () => {
 
-          const exists =
-            Upgrader.selectedTargets.find(
+        const exists =
+          Upgrader.selectedTargets.find(
+            i =>
+              i.key === key
+          );
+
+        if (exists) {
+
+          Upgrader.selectedTargets =
+            Upgrader.selectedTargets.filter(
               i =>
-                i.key === key
+                i.key !== key
             );
 
-          if (exists) {
+        } else {
 
-            Upgrader.selectedTargets =
-              Upgrader.selectedTargets.filter(
-                i =>
-                  i.key !== key
-              );
+          Upgrader.selectedTargets.push({
+            item,
+            index,
+            key
+          });
+        }
 
-          } else {
+        renderTarget();
 
-            Upgrader.selectedTargets.push({
-              item,
-              index,
-              key
-            });
-          }
-
-          renderTarget();
-
-          updateUI();
-        };
+        updateUI();
+      };
 
       box.appendChild(
         div
@@ -3696,9 +3773,9 @@ function renderTarget() {
 }
 
 
-/* =========================
-   UI UPDATE
-========================= */
+// =========================
+// UI UPDATE
+// =========================
 
 function updateUI() {
 
@@ -3712,19 +3789,32 @@ function updateUI() {
       "upgrade-value"
     );
 
+
   const wager =
     Upgrader.selectedWagers.reduce(
       (a, b) =>
-        a + b.item.price,
+        a +
+        (
+          Number(
+            b.item.price
+          ) || 0
+        ),
       0
     );
+
 
   const target =
     Upgrader.selectedTargets.reduce(
       (a, b) =>
-        a + b.item.price,
+        a +
+        (
+          Number(
+            b.item.price
+          ) || 0
+        ),
       0
     );
+
 
   const chance =
     target
@@ -3738,17 +3828,20 @@ function updateUI() {
         )
       : 0;
 
+
   if (chanceBox) {
 
     chanceBox.textContent =
       `Chance: ${chance.toFixed(2)}%`;
   }
 
+
   if (valueBox) {
 
     valueBox.textContent =
       `${wager.toFixed(2)} ⛃ → ${target.toFixed(2)} ⛃`;
   }
+
 
   if (
     typeof updateUpgradeCircle ===
@@ -3762,205 +3855,269 @@ function updateUI() {
 }
 
 
-/* =========================
-   UPGRADE BUTTON
-========================= */
+// =========================
+// UPGRADE BUTTON SETUP
+// =========================
 
-const upgradeButton =
-  document.getElementById(
-    "upgrade-btn"
-  );
+function setupUpgradeButton() {
 
-if (upgradeButton) {
+  const upgradeButton =
+    document.getElementById(
+      "upgrade-btn"
+    );
 
-  upgradeButton.onclick =
-    () => {
+  if (!upgradeButton) {
+    return;
+  }
 
-      if (Upgrader.upgrading) {
-        return;
-      }
+  // Prevent duplicate listeners.
 
-      if (
-        !Upgrader.selectedWagers.length ||
-        !Upgrader.selectedTargets.length
-      ) {
+  if (
+    upgradeButton.dataset
+      .upgradeBound === "true"
+  ) {
+    return;
+  }
 
-        return;
-      }
+  upgradeButton.dataset
+    .upgradeBound = "true";
 
-      const wager =
-        Upgrader.selectedWagers.reduce(
-          (a, b) =>
-            a + b.item.price,
-          0
-        );
 
-      const target =
-        Upgrader.selectedTargets.reduce(
-          (a, b) =>
-            a + b.item.price,
-          0
-        );
+  upgradeButton.onclick = () => {
 
-      const chance =
-        Math.min(
-          100,
+    if (
+      Upgrader.upgrading
+    ) {
+      return;
+    }
+
+
+    if (
+      !Upgrader.selectedWagers.length ||
+      !Upgrader.selectedTargets.length
+    ) {
+      return;
+    }
+
+
+    const wager =
+      Upgrader.selectedWagers.reduce(
+        (a, b) =>
+          a +
           (
-            wager *
-            0.95 /
-            target
-          ) * 100
-        );
-
-      Upgrader.upgrading =
-        true;
-
-      const circle =
-        document.getElementById(
-          "upgrade-circle"
-        );
-
-      const fill =
-        document.getElementById(
-          "upgrade-circle-fill"
-        );
-
-      const text =
-        document.getElementById(
-          "upgrade-circle-text"
-        );
-
-      if (circle) {
-
-        circle.classList.remove(
-          "win",
-          "lose"
-        );
-      }
-
-      if (fill) {
-
-        fill.style.background =
-          "green";
-
-        fill.style.height =
-          `${chance}%`;
-      }
-
-      if (text) {
-
-        text.textContent =
-          `${chance.toFixed(2)}%`;
-      }
-
-      // 2 SECOND PAUSE
-      setTimeout(
-        () => {
-
-          const roll =
-            Math.random() *
-            100;
-
-          const win =
-            roll <= chance;
-
-          if (win) {
-
-            Upgrader.selectedTargets
-              .forEach(
-                t => {
-
-                  inventory.push({
-                    ...t.item
-                  });
-                }
-              );
-
-            if (circle) {
-
-              circle.classList.add(
-                "win"
-              );
-            }
-
-            if (fill) {
-
-              fill.style.background =
-                "lime";
-            }
-
-            if (text) {
-
-              text.textContent =
-                "WIN!";
-            }
-
-          } else {
-
-            if (circle) {
-
-              circle.classList.add(
-                "lose"
-              );
-            }
-
-            if (fill) {
-
-              fill.style.background =
-                "red";
-            }
-
-            if (text) {
-
-              text.textContent =
-                "LOSE!";
-            }
-          }
+            Number(
+              b.item.price
+            ) || 0
+          ),
+        0
+      );
 
 
-          // Remove wager items
-          Upgrader.selectedWagers
-            .sort(
-              (a, b) =>
-                b.index -
-                a.index
-            )
+    const target =
+      Upgrader.selectedTargets.reduce(
+        (a, b) =>
+          a +
+          (
+            Number(
+              b.item.price
+            ) || 0
+          ),
+        0
+      );
+
+
+    if (
+      target <= 0
+    ) {
+      return;
+    }
+
+
+    const chance =
+      Math.min(
+        100,
+        (
+          wager *
+          0.95 /
+          target
+        ) * 100
+      );
+
+
+    Upgrader.upgrading =
+      true;
+
+
+    const circle =
+      document.getElementById(
+        "upgrade-circle"
+      );
+
+    const fill =
+      document.getElementById(
+        "upgrade-circle-fill"
+      );
+
+    const text =
+      document.getElementById(
+        "upgrade-circle-text"
+      );
+
+
+    if (circle) {
+
+      circle.classList.remove(
+        "win",
+        "lose"
+      );
+    }
+
+
+    if (fill) {
+
+      fill.style.background =
+        "green";
+
+      fill.style.height =
+        `${chance}%`;
+    }
+
+
+    if (text) {
+
+      text.textContent =
+        `${chance.toFixed(2)}%`;
+    }
+
+
+    // =====================
+    // 2 SECOND PAUSE
+    // =====================
+
+    setTimeout(
+      () => {
+
+        const roll =
+          Math.random() * 100;
+
+        const win =
+          roll <= chance;
+
+
+        if (win) {
+
+          Upgrader.selectedTargets
             .forEach(
-              w => {
+              targetEntry => {
 
-                inventory.splice(
-                  w.index,
-                  1
-                );
+                inventory.push({
+                  ...targetEntry.item
+                });
               }
             );
 
-          Upgrader.selectedWagers =
-            [];
 
-          Upgrader.selectedTargets =
-            [];
+          if (circle) {
 
-          saveInventory();
+            circle.classList.add(
+              "win"
+            );
+          }
 
-          renderInventory();
 
-          renderWager();
+          if (fill) {
 
-          renderTarget();
+            fill.style.background =
+              "lime";
+          }
 
-          updateUI();
 
-          updateBackpackValue();
+          if (text) {
 
-          populateCoinflipDropdown();
+            text.textContent =
+              "WIN!";
+          }
 
-          Upgrader.upgrading =
-            false;
+        } else {
 
-        },
-        2000
-      );
-    };
+          if (circle) {
+
+            circle.classList.add(
+              "lose"
+            );
+          }
+
+
+          if (fill) {
+
+            fill.style.background =
+              "red";
+          }
+
+
+          if (text) {
+
+            text.textContent =
+              "LOSE!";
+          }
+        }
+
+
+        // =====================
+        // REMOVE WAGER ITEMS
+        // =====================
+
+        /*
+         * Remove by original inventory
+         * index, highest index first,
+         * so earlier indexes don't shift.
+         */
+
+        Upgrader.selectedWagers
+          .sort(
+            (a, b) =>
+              b.index -
+              a.index
+          )
+          .forEach(
+            wagerEntry => {
+
+              inventory.splice(
+                wagerEntry.index,
+                1
+              );
+            }
+          );
+
+
+        Upgrader.selectedWagers =
+          [];
+
+        Upgrader.selectedTargets =
+          [];
+
+
+        saveInventory();
+
+        renderInventory();
+
+        renderWager();
+
+        renderTarget();
+
+        updateUI();
+
+        updateBackpackValue();
+
+        populateCoinflipDropdown();
+
+
+        Upgrader.upgrading =
+          false;
+
+      },
+      2000
+    );
+  };
 }
-```
+
