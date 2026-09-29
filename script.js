@@ -303,16 +303,13 @@ function renderInventory() {
       <img src="${item.image || ""}">
       <p>${item.name}</p>
       <small>${price.toFixed(2)} coins</small>
-      ${isPure ? "" : '<button class="sell-btn theme-btn">Scrap</button>'}
+      <button class="sell-btn theme-btn">Scrap</button>
       <button class="convert-btn theme-btn">Convert</button>
     `;
 
-    const sellButton = div.querySelector(".sell-btn");
-    if (sellButton) {
-      sellButton.onclick = () => {
-        sellItem(index);
-      };
-    }
+    div.querySelector(".sell-btn").onclick = () => {
+      sellItem(index);
+    };
 
     div.querySelector(".convert-btn").onclick = () => {
       convertInventoryItem(index);
@@ -507,16 +504,7 @@ function withdrawPure(id) {
 
 function calculatePureBreakdown(coinValue) {
 
-  // Work in hundredths of a coin to avoid floating-point rounding errors.
-  let remainingHundredths =
-    Math.max(0, Math.round((Number(coinValue) || 0) * 100));
-
-  const values = {
-    maxhead: 7256,
-    earbuds: 1872,
-    key: 236,
-    refined: 3
-  };
+  let remaining = Math.max(0, Number(coinValue) || 0);
 
   const breakdown = {
     maxhead: 0,
@@ -525,20 +513,22 @@ function calculatePureBreakdown(coinValue) {
     refined: 0
   };
 
+  // Largest to smallest. A tiny epsilon prevents floating-point values
+  // such as 2.359999999 from incorrectly losing a whole unit.
+  const EPSILON = 1e-9;
+
   for (const id of ["maxhead", "earbuds", "key", "refined"]) {
+    const value = PURE_TYPES[id].value;
+    const count = Math.floor((remaining + EPSILON) / value);
 
-    const count = Math.floor(
-      remainingHundredths / values[id]
-    );
-
-    breakdown[id] = count;
-    remainingHundredths -= count * values[id];
+    if (count > 0) {
+      breakdown[id] = count;
+      remaining -= count * value;
+      if (remaining < EPSILON) remaining = 0;
+    }
   }
 
-  return {
-    breakdown,
-    remainder: remainingHundredths / 100
-  };
+  return { breakdown, remainder: Math.max(0, remaining) };
 }
 
 function formatPureBreakdown(breakdown) {
@@ -628,10 +618,6 @@ Unused sub-Refined remainder: ${result.remainder.toFixed(4)} coins.`
 // ===================== SELL ITEM =====================
 
 function sellItem(index) {
-
-  if (!inventory[index] || isPureItem(inventory[index])) {
-    return;
-  }
 
   coins += inventory[index].price;
 
@@ -827,8 +813,6 @@ function populateCoinflipDropdown() {
 
   inventory.forEach((item, index) => {
 
-    if (isPureItem(item)) return;
-
     const option =
       document.createElement("option");
 
@@ -839,11 +823,6 @@ function populateCoinflipDropdown() {
 
     select.appendChild(option);
   });
-
-  if (select.options.length === 0) {
-    select.innerHTML = `<option>No items available</option>`;
-    select.disabled = true;
-  }
 }
 
 
@@ -1668,8 +1647,6 @@ function renderWager() {
 
   inventory.forEach(
     (item, index) => {
-
-      if (isPureItem(item)) return;
 
       const key =
         getKey(item, index);
